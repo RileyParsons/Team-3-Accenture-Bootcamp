@@ -45,27 +45,32 @@ Stores user profile data including income, expenses, preferences, and location.
     {
       "name": "Rent",
       "amount": 600,
-      "frequency": "monthly"
+      "frequency": "monthly",
+      "isFixed": true
     },
     {
       "name": "Groceries",
       "amount": 80,
-      "frequency": "weekly"
+      "frequency": "weekly",
+      "isFixed": false
     },
     {
       "name": "Netflix",
       "amount": 16.99,
-      "frequency": "monthly"
+      "frequency": "monthly",
+      "isFixed": true
     },
     {
       "name": "Gym Membership",
       "amount": 25,
-      "frequency": "monthly"
+      "frequency": "monthly",
+      "isFixed": true
     },
     {
       "name": "Fuel",
       "amount": 60,
-      "frequency": "weekly"
+      "frequency": "weekly",
+      "isFixed": false
     }
   ],
   "createdAt": "2026-02-11T10:00:00Z"
@@ -88,6 +93,7 @@ Stores user profile data including income, expenses, preferences, and location.
 | recurringExpenses[].name | String | Yes | Name of the expense (e.g., "Rent", "Netflix") |
 | recurringExpenses[].amount | Number | Yes | Cost in AUD |
 | recurringExpenses[].frequency | String | Yes | How often charged (weekly/monthly/yearly) |
+| recurringExpenses[].isFixed | Boolean | Yes | true = fixed cost (e.g., rent, internet), false = variable (e.g., groceries, fuel) |
 | createdAt | String | Yes | ISO 8601 timestamp |
 
 ---
@@ -201,7 +207,8 @@ You can insert a test item to verify:
     {
       "name": "Rent",
       "amount": 500,
-      "frequency": "monthly"
+      "frequency": "monthly",
+      "isFixed": true
     }
   ],
   "createdAt": "2026-02-11T12:00:00Z"
