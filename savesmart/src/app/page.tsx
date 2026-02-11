@@ -1,4 +1,5 @@
 import { PiggyBank, TrendingUp, ShoppingCart, Fuel } from "lucide-react";
+import Link from "next/link";
 
 export default function Home() {
   return (
@@ -24,9 +25,11 @@ export default function Home() {
             Ask questions about your finances and get real, actionable savings advice 
             powered by live Australian pricing data. Perfect for university students and young people.
           </p>
-          <button className="bg-green-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-green-700 transition-colors">
-            Get Started Free
-          </button>
+          <Link href="/onboarding">
+            <button className="bg-green-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-green-700 transition-colors">
+              Get Started Free
+            </button>
+          </Link>
         </div>
 
         <div className="grid md:grid-cols-3 gap-8 mb-16">
@@ -81,9 +84,11 @@ export default function Home() {
         <div className="text-center mt-16">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Ready to Start Saving?</h2>
           <p className="text-gray-600 mb-8">Join thousands of Australian students saving money with AI</p>
-          <button className="bg-green-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-green-700 transition-colors">
-            Start Your Savings Journey
-          </button>
+          <Link href="/onboarding">
+            <button className="bg-green-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-green-700 transition-colors">
+              Start Your Savings Journey
+            </button>
+          </Link>
         </div>
       </main>
     </div>
