@@ -1,0 +1,130 @@
+{
+  "personas": [
+    {
+      "id": "demo-sarah-123",
+      "name": "Budget Sarah",
+      "description": "Primary demo persona - Budget-conscious vegetarian student",
+      "priority": "PRIMARY",
+      "profile": {
+        "userId": "demo-sarah-123",
+        "email": "sarah@student.com",
+        "name": "Sarah",
+        "income": 1200,
+        "rent": 600,
+        "groceryBudget": 80,
+        "savings": 500,
+        "hasCar": true,
+        "fuelType": "E10",
+        "location": "Parramatta",
+        "postcode": "2150",
+        "dietaryPreferences": ["vegetarian"],
+        "subscriptions": ["Netflix", "Spotify"]
+      },
+      "testScenarios": [
+        {
+          "scenario": "Savings Goal",
+          "prompt": "I want to save $3,000 in 6 months for a Japan trip",
+          "expectedResponse": {
+            "requiredMonthly": 500,
+            "currentSurplus": 200,
+            "savingsOpportunities": {
+              "grocery": 120,
+              "fuel": 60,
+              "subscriptions": 50,
+              "other": 70
+            },
+            "totalSavings": 300
+          }
+        },
+        {
+          "scenario": "Grocery Savings",
+          "prompt": "Help me save money on groceries",
+          "expectedResponse": {
+            "mealCount": 5,
+            "dietaryMatch": "vegetarian",
+            "stores": ["Coles", "Woolworths"],
+            "weeklyCost": "< $80",
+            "savings": "> $15"
+          }
+        },
+        {
+          "scenario": "Fuel Optimization",
+          "prompt": "Where can I find cheap fuel near me?",
+          "expectedResponse": {
+            "fuelType": "E10",
+            "location": "Parramatta",
+            "stationCount": 5,
+            "hasPrices": true,
+            "hasSavings": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "demo-alex-456",
+      "name": "High-Income Alex",
+      "description": "High-income student with multiple subscriptions",
+      "priority": "SECONDARY",
+      "profile": {
+        "userId": "demo-alex-456",
+        "email": "alex@student.com",
+        "name": "Alex",
+        "income": 2000,
+        "rent": 800,
+        "groceryBudget": 120,
+        "savings": 2000,
+        "hasCar": true,
+        "fuelType": "U91",
+        "location": "Sydney CBD",
+        "postcode": "2000",
+        "dietaryPreferences": [],
+        "subscriptions": ["Netflix", "Spotify", "Disney+", "Amazon Prime"]
+      },
+      "testScenarios": [
+        {
+          "scenario": "Subscription Audit",
+          "prompt": "Help me reduce my subscription costs",
+          "expectedResponse": {
+            "subscriptionCount": 4,
+            "totalCost": "> $50",
+            "recommendations": "cancellations or alternatives",
+            "potentialSavings": "> $20"
+          }
+        }
+      ]
+    },
+    {
+      "id": "demo-jamie-789",
+      "name": "Low-Income Jamie",
+      "description": "Low-income student without car, halal dietary needs",
+      "priority": "SECONDARY",
+      "profile": {
+        "userId": "demo-jamie-789",
+        "email": "jamie@student.com",
+        "name": "Jamie",
+        "income": 800,
+        "rent": 400,
+        "groceryBudget": 50,
+        "savings": 100,
+        "hasCar": false,
+        "fuelType": "",
+        "location": "Campbelltown",
+        "postcode": "2560",
+        "dietaryPreferences": ["halal"],
+        "subscriptions": ["Spotify"]
+      },
+      "testScenarios": [
+        {
+          "scenario": "Tight Budget Meal Planning",
+          "prompt": "I need cheap halal meals for $50/week",
+          "expectedResponse": {
+            "mealCount": 5,
+            "dietaryMatch": "halal",
+            "weeklyCost": "<= $50",
+            "respectsDietary": true
+          }
+        }
+      ]
+    }
+  ]
+}
