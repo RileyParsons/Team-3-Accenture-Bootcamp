@@ -114,7 +114,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return createErrorResponse(502, "AI agent unavailable", "AI_AGENT_ERROR");
     }
 
-    const agentResponse: N8NResponse = await n8nResponse.json();
+    const agentResponse = await n8nResponse.json() as N8NResponse;
     console.log("n8n response received");
 
     // Step 3: Optionally save plan to DynamoDB
