@@ -1,7 +1,6 @@
 // API utility functions for SaveSmart
 
-const API_BASE_URL =
-    'https://lmj3rtgsbe.execute-api.ap-southeast-2.amazonaws.com/prod';
+const API_BASE_URL = 'https://lmj3rtgsbe.execute-api.ap-southeast-2.amazonaws.com/prod';
 
 export interface UserData {
     userId: string;
