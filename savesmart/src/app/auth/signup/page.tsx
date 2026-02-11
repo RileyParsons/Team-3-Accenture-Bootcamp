@@ -4,6 +4,7 @@ import { useState } from "react";
 import { PiggyBank, Eye, EyeOff, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { saveUser, generateUserId } from "@/lib/api";
 
 export default function Signup() {
   const router = useRouter();
@@ -18,6 +19,7 @@ export default function Signup() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(false);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -54,22 +56,46 @@ export default function Signup() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (validateForm()) {
-      // Store user data in localStorage (dummy backend)
-      const userData = {
-        email: formData.email,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        createdAt: new Date().toISOString()
-      };
-      localStorage.setItem('savesmart_user', JSON.stringify(userData));
-      localStorage.setItem('savesmart_authenticated', 'true');
-      
-      // Redirect to onboarding
-      router.push('/onboarding');
+      setIsLoading(true);
+
+      try {
+        // Generate unique user ID
+        const userId = generateUserId();
+
+        // Prepare user data for API
+        const userData = {
+          userId,
+          email: formData.email,
+          name: `${formData.firstName} ${formData.lastName}`,
+        };
+
+        // Save user to backend
+        await saveUser(userData);
+
+        // Store user data in localStorage for session management
+        const localUserData = {
+          userId,
+          email: formData.email,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          name: userData.name,
+          createdAt: new Date().toISOString()
+        };
+        localStorage.setItem('savesmart_user', JSON.stringify(localUserData));
+        localStorage.setItem('savesmart_authenticated', 'true');
+
+        // Redirect to onboarding
+        router.push('/onboarding');
+      } catch (error) {
+        console.error('Signup error:', error);
+        setErrors({ submit: 'Failed to create account. Please try again.' });
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -89,7 +115,7 @@ export default function Signup() {
             <PiggyBank className="h-8 w-8 text-green-600" />
             <span className="text-xl font-bold text-gray-900">SaveSmart</span>
           </Link>
-          <Link 
+          <Link
             href="/auth/login"
             className="text-green-600 hover:text-green-700 font-medium"
           >
@@ -121,18 +147,17 @@ export default function Signup() {
                   type="text"
                   value={formData.firstName}
                   onChange={(e) => updateField('firstName', e.target.value)}
-                  className={`w-full p-3 border-2 rounded-lg focus:outline-none transition-colors ${
-                    errors.firstName 
-                      ? 'border-red-300 focus:border-red-500' 
-                      : 'border-gray-200 focus:border-green-500'
-                  }`}
+                  className={`w-full p-3 border-2 rounded-lg focus:outline-none transition-colors ${errors.firstName
+                    ? 'border-red-300 focus:border-red-500'
+                    : 'border-gray-200 focus:border-green-500'
+                    }`}
                   placeholder="Sarah"
                 />
                 {errors.firstName && (
                   <p className="text-red-500 text-sm mt-1">{errors.firstName}</p>
                 )}
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Last Name
@@ -141,11 +166,10 @@ export default function Signup() {
                   type="text"
                   value={formData.lastName}
                   onChange={(e) => updateField('lastName', e.target.value)}
-                  className={`w-full p-3 border-2 rounded-lg focus:outline-none transition-colors ${
-                    errors.lastName 
-                      ? 'border-red-300 focus:border-red-500' 
-                      : 'border-gray-200 focus:border-green-500'
-                  }`}
+                  className={`w-full p-3 border-2 rounded-lg focus:outline-none transition-colors ${errors.lastName
+                    ? 'border-red-300 focus:border-red-500'
+                    : 'border-gray-200 focus:border-green-500'
+                    }`}
                   placeholder="Smith"
                 />
                 {errors.lastName && (
@@ -163,11 +187,10 @@ export default function Signup() {
                 type="email"
                 value={formData.email}
                 onChange={(e) => updateField('email', e.target.value)}
-                className={`w-full p-3 border-2 rounded-lg focus:outline-none transition-colors ${
-                  errors.email 
-                    ? 'border-red-300 focus:border-red-500' 
-                    : 'border-gray-200 focus:border-green-500'
-                }`}
+                className={`w-full p-3 border-2 rounded-lg focus:outline-none transition-colors ${errors.email
+                  ? 'border-red-300 focus:border-red-500'
+                  : 'border-gray-200 focus:border-green-500'
+                  }`}
                 placeholder="sarah@university.edu.au"
               />
               {errors.email && (
@@ -185,11 +208,10 @@ export default function Signup() {
                   type={showPassword ? "text" : "password"}
                   value={formData.password}
                   onChange={(e) => updateField('password', e.target.value)}
-                  className={`w-full p-3 pr-12 border-2 rounded-lg focus:outline-none transition-colors ${
-                    errors.password 
-                      ? 'border-red-300 focus:border-red-500' 
-                      : 'border-gray-200 focus:border-green-500'
-                  }`}
+                  className={`w-full p-3 pr-12 border-2 rounded-lg focus:outline-none transition-colors ${errors.password
+                    ? 'border-red-300 focus:border-red-500'
+                    : 'border-gray-200 focus:border-green-500'
+                    }`}
                   placeholder="••••••••"
                 />
                 <button
@@ -215,11 +237,10 @@ export default function Signup() {
                   type={showConfirmPassword ? "text" : "password"}
                   value={formData.confirmPassword}
                   onChange={(e) => updateField('confirmPassword', e.target.value)}
-                  className={`w-full p-3 pr-12 border-2 rounded-lg focus:outline-none transition-colors ${
-                    errors.confirmPassword 
-                      ? 'border-red-300 focus:border-red-500' 
-                      : 'border-gray-200 focus:border-green-500'
-                  }`}
+                  className={`w-full p-3 pr-12 border-2 rounded-lg focus:outline-none transition-colors ${errors.confirmPassword
+                    ? 'border-red-300 focus:border-red-500'
+                    : 'border-gray-200 focus:border-green-500'
+                    }`}
                   placeholder="••••••••"
                 />
                 <button
@@ -261,12 +282,20 @@ export default function Signup() {
               </div>
             </div>
 
+            {/* Submit Error */}
+            {errors.submit && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-600 text-sm">{errors.submit}</p>
+              </div>
+            )}
+
             {/* Submit Button */}
             <button
               type="submit"
-              className="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-green-700 transition-colors"
+              disabled={isLoading}
+              className="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              Create Account
+              {isLoading ? 'Creating Account...' : 'Create Account'}
             </button>
           </form>
 
