@@ -45,8 +45,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const expressionAttributeValues: Record<string, any> = {};
 
     const allowedFields = [
-      "email", "name", "income", "rent", "groceryBudget", "savings",
-      "hasCar", "fuelType", "location", "postcode", "dietaryPreferences", "subscriptions"
+      "email", "name", "income", "incomeFrequency", "savings",
+      "location", "postcode", "recurringExpenses"
     ];
 
     for (const field of allowedFields) {

@@ -4,20 +4,22 @@ import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 
 const client = new DynamoDBClient({ region: process.env.AWS_REGION || "ap-southeast-2" });
 
+interface RecurringExpense {
+  name: string;
+  amount: number;
+  frequency: "weekly" | "monthly" | "yearly";
+}
+
 interface UserProfile {
   userId: string;
   email: string;
   name: string;
   income: number;
-  rent: number;
-  groceryBudget: number;
+  incomeFrequency: "weekly" | "monthly" | "yearly";
   savings: number;
-  hasCar: boolean;
-  fuelType?: string | null;
   location: string;
   postcode?: string | null;
-  dietaryPreferences: string[];
-  subscriptions: string[];
+  recurringExpenses: RecurringExpense[];
   createdAt: string;
 }
 
@@ -51,7 +53,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const body = JSON.parse(event.body);
 
     // Validate required fields
-    const requiredFields = ["userId", "email", "name", "income", "rent", "groceryBudget", "savings", "location"];
+    const requiredFields = ["userId", "email", "name", "income", "savings", "location"];
 
     for (const field of requiredFields) {
       if (body[field] === undefined || body[field] === null || body[field] === "") {
@@ -64,14 +66,6 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return createErrorResponse(400, "Income must be a non-negative number", "VALIDATION_ERROR");
     }
 
-    if (typeof body.rent !== "number" || body.rent < 0) {
-      return createErrorResponse(400, "Rent must be a non-negative number", "VALIDATION_ERROR");
-    }
-
-    if (typeof body.groceryBudget !== "number" || body.groceryBudget <= 0) {
-      return createErrorResponse(400, "Grocery budget must be a positive number", "VALIDATION_ERROR");
-    }
-
     if (typeof body.savings !== "number" || body.savings < 0) {
       return createErrorResponse(400, "Savings must be a non-negative number", "VALIDATION_ERROR");
     }
@@ -82,21 +76,42 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return createErrorResponse(400, "Invalid email format", "VALIDATION_ERROR");
     }
 
+    // Validate income frequency
+    const validFrequencies = ["weekly", "monthly", "yearly"];
+    const incomeFrequency = body.incomeFrequency || "monthly";
+    if (!validFrequencies.includes(incomeFrequency)) {
+      return createErrorResponse(400, "Income frequency must be weekly, monthly, or yearly", "VALIDATION_ERROR");
+    }
+
+    // Validate recurring expenses
+    const recurringExpenses = body.recurringExpenses || [];
+    if (!Array.isArray(recurringExpenses)) {
+      return createErrorResponse(400, "Recurring expenses must be an array", "VALIDATION_ERROR");
+    }
+
+    for (const expense of recurringExpenses) {
+      if (!expense.name || typeof expense.name !== "string") {
+        return createErrorResponse(400, "Each recurring expense must have a name", "VALIDATION_ERROR");
+      }
+      if (typeof expense.amount !== "number" || expense.amount < 0) {
+        return createErrorResponse(400, "Each recurring expense must have a valid amount", "VALIDATION_ERROR");
+      }
+      if (!validFrequencies.includes(expense.frequency)) {
+        return createErrorResponse(400, "Each recurring expense frequency must be weekly, monthly, or yearly", "VALIDATION_ERROR");
+      }
+    }
+
     // Prepare user object
     const user: UserProfile = {
       userId: body.userId,
       email: body.email,
       name: body.name,
       income: body.income,
-      rent: body.rent,
-      groceryBudget: body.groceryBudget,
+      incomeFrequency: incomeFrequency,
       savings: body.savings,
-      hasCar: body.hasCar || false,
-      fuelType: body.fuelType || null,
       location: body.location,
       postcode: body.postcode || null,
-      dietaryPreferences: body.dietaryPreferences || [],
-      subscriptions: body.subscriptions || [],
+      recurringExpenses: recurringExpenses,
       createdAt: new Date().toISOString()
     };
 

@@ -37,15 +37,37 @@ Stores user profile data including income, expenses, preferences, and location.
   "email": "sarah@uni.edu.au",
   "name": "Sarah",
   "income": 1200,
-  "rent": 600,
-  "groceryBudget": 80,
+  "incomeFrequency": "monthly",
   "savings": 500,
-  "hasCar": true,
-  "fuelType": "E10",
   "location": "Parramatta",
   "postcode": "2150",
-  "dietaryPreferences": ["vegetarian"],
-  "subscriptions": ["Netflix", "Spotify"],
+  "recurringExpenses": [
+    {
+      "name": "Rent",
+      "amount": 600,
+      "frequency": "monthly"
+    },
+    {
+      "name": "Groceries",
+      "amount": 80,
+      "frequency": "weekly"
+    },
+    {
+      "name": "Netflix",
+      "amount": 16.99,
+      "frequency": "monthly"
+    },
+    {
+      "name": "Gym Membership",
+      "amount": 25,
+      "frequency": "monthly"
+    },
+    {
+      "name": "Fuel",
+      "amount": 60,
+      "frequency": "weekly"
+    }
+  ],
   "createdAt": "2026-02-11T10:00:00Z"
 }
 ```
@@ -57,16 +79,15 @@ Stores user profile data including income, expenses, preferences, and location.
 | userId | String | Yes | Unique user identifier (partition key) |
 | email | String | Yes | User's email address |
 | name | String | Yes | User's display name |
-| income | Number | Yes | Monthly income in AUD |
-| rent | Number | Yes | Monthly rent in AUD |
-| groceryBudget | Number | Yes | Weekly grocery budget in AUD |
+| income | Number | Yes | Income amount in AUD |
+| incomeFrequency | String | No | How often income is received (weekly/monthly/yearly, default: monthly) |
 | savings | Number | Yes | Current savings in AUD |
-| hasCar | Boolean | No | Whether user owns a car |
-| fuelType | String | No | Type of fuel (E10, Unleaded 91, Diesel, etc.) |
 | location | String | Yes | Suburb name |
 | postcode | String | No | Australian postcode (4 digits) |
-| dietaryPreferences | Array | No | List of dietary preferences |
-| subscriptions | Array | No | List of active subscriptions |
+| recurringExpenses | Array | No | List of recurring expenses (default: empty array) |
+| recurringExpenses[].name | String | Yes | Name of the expense (e.g., "Rent", "Netflix") |
+| recurringExpenses[].amount | Number | Yes | Cost in AUD |
+| recurringExpenses[].frequency | String | Yes | How often charged (weekly/monthly/yearly) |
 | createdAt | String | Yes | ISO 8601 timestamp |
 
 ---
@@ -173,13 +194,16 @@ You can insert a test item to verify:
   "email": "test@example.com",
   "name": "Test User",
   "income": 1000,
-  "rent": 500,
-  "groceryBudget": 100,
+  "incomeFrequency": "monthly",
   "savings": 200,
-  "hasCar": false,
   "location": "Sydney",
-  "dietaryPreferences": [],
-  "subscriptions": [],
+  "recurringExpenses": [
+    {
+      "name": "Rent",
+      "amount": 500,
+      "frequency": "monthly"
+    }
+  ],
   "createdAt": "2026-02-11T12:00:00Z"
 }
 ```
