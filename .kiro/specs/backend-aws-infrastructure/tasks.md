@@ -6,7 +6,7 @@ This implementation plan breaks down the AWS serverless backend infrastructure i
 
 ## Tasks
 
-- [ ] 1. Set up DynamoDB tables and verify access
+- [-] 1. Set up DynamoDB tables and verify access
   - Create `savesmart-users` table with userId as partition key
   - Create `savesmart-plans` table with userId as partition key and planId as sort key
   - Add Global Secondary Index `userId-index` to plans table for efficient querying
@@ -14,7 +14,7 @@ This implementation plan breaks down the AWS serverless backend infrastructure i
   - Test table creation and basic read/write operations using AWS CLI or SDK
   - _Requirements: 3.1_
 
-- [ ] 2. Create IAM roles and policies for Lambda functions
+- [~] 2. Create IAM roles and policies for Lambda functions
   - Create base execution role with CloudWatch Logs permissions
   - Create DynamoDB read policy for getUser, chat, and getPlans functions
   - Create DynamoDB write policy for saveUser, updateUser, and chat functions
@@ -22,7 +22,7 @@ This implementation plan breaks down the AWS serverless backend infrastructure i
   - _Requirements: 3.5_
 
 - [ ] 3. Implement and deploy saveUser Lambda function
-  - [-] 3.1 Create saveUser Lambda function with input validation
+  - [x] 3.1 Create saveUser Lambda function with input validation
     - Implement handler with request body parsing
     - Add validation for required fields (userId, email, name, income, rent, groceryBudget, savings, location)
     - Add validation for data types (numbers, booleans, arrays)
@@ -32,11 +32,11 @@ This implementation plan breaks down the AWS serverless backend infrastructure i
     - Add comprehensive logging
     - _Requirements: 3.3.1, 3.6_
 
-  - [ ] 3.2 Write property test for saveUser
+  - [~] 3.2 Write property test for saveUser
     - **Property 1: User Creation Round-Trip**
     - **Validates: Requirements 3.3.1, 3.3.2**
 
-  - [ ] 3.3 Write unit tests for saveUser
+  - [~] 3.3 Write unit tests for saveUser
     - Test successful user creation with valid data
     - Test validation errors for missing required fields
     - Test validation errors for invalid data types
@@ -44,7 +44,7 @@ This implementation plan breaks down the AWS serverless backend infrastructure i
     - _Requirements: 3.3.1, 3.6_
 
 - [ ] 4. Implement and deploy getUser Lambda function
-  - [ ] 4.1 Create getUser Lambda function with path parameter handling
+  - [x] 4.1 Create getUser Lambda function with path parameter handling
     - Implement handler with pathParameters extraction
     - Add validation for userId parameter
     - Implement DynamoDB GetItem operation
@@ -53,24 +53,24 @@ This implementation plan breaks down the AWS serverless backend infrastructure i
     - Add comprehensive logging
     - _Requirements: 3.3.2, 3.6_
 
-  - [ ] 4.2 Write property test for getUser
+  - [~] 4.2 Write property test for getUser
     - **Property 2: Non-Existent User Returns 404**
     - **Validates: Requirements 3.3.2**
 
-  - [ ] 4.3 Write unit tests for getUser
+  - [~] 4.3 Write unit tests for getUser
     - Test successful user retrieval
     - Test 404 response for non-existent user
     - Test validation error for missing userId
     - _Requirements: 3.3.2, 3.6_
 
-- [ ] 5. Checkpoint - Verify user creation and retrieval flow
+- [~] 5. Checkpoint - Verify user creation and retrieval flow
   - Test POST /users creates a user successfully
   - Test GET /users/{userId} retrieves the created user
   - Verify all fields are correctly stored and retrieved
   - Ensure all tests pass, ask the user if questions arise
 
 - [ ] 6. Implement and deploy updateUser Lambda function
-  - [ ] 6.1 Create updateUser Lambda function with dynamic update expressions
+  - [x] 6.1 Create updateUser Lambda function with dynamic update expressions
     - Implement handler with pathParameters and body parsing
     - Build dynamic UpdateExpression for partial updates
     - Handle different data types (numbers, booleans, arrays, strings, null)
@@ -80,11 +80,11 @@ This implementation plan breaks down the AWS serverless backend infrastructure i
     - Add comprehensive logging
     - _Requirements: 3.3.3, 3.6_
 
-  - [ ] 6.2 Write property test for updateUser
+  - [~] 6.2 Write property test for updateUser
     - **Property 3: User Update Consistency**
     - **Validates: Requirements 3.3.3**
 
-  - [ ] 6.3 Write unit tests for updateUser
+  - [~] 6.3 Write unit tests for updateUser
     - Test successful partial update
     - Test update with multiple fields
     - Test validation error for no fields to update
@@ -92,7 +92,7 @@ This implementation plan breaks down the AWS serverless backend infrastructure i
     - _Requirements: 3.3.3, 3.6_
 
 - [ ] 7. Implement and deploy chat Lambda function (critical path)
-  - [ ] 7.1 Create chat Lambda function with n8n integration
+  - [x] 7.1 Create chat Lambda function with n8n integration
     - Implement handler with request body parsing
     - Add validation for userId and message parameters
     - Implement DynamoDB GetItem to fetch user profile
@@ -106,15 +106,15 @@ This implementation plan breaks down the AWS serverless backend infrastructure i
     - Include CORS headers in all responses
     - _Requirements: 3.3.4, 3.6_
 
-  - [ ] 7.2 Write property test for chat response structure
+  - [~] 7.2 Write property test for chat response structure
     - **Property 4: Chat Response Structure**
     - **Validates: Requirements 3.3.4**
 
-  - [ ] 7.3 Write property test for plan persistence
+  - [~] 7.3 Write property test for plan persistence
     - **Property 5: Plan Persistence and Retrieval**
     - **Validates: Requirements 3.3.4, 3.3.5**
 
-  - [ ] 7.4 Write unit tests for chat function
+  - [~] 7.4 Write unit tests for chat function
     - Test successful chat with valid userId and message
     - Test 404 response for non-existent user
     - Test validation errors for missing parameters
@@ -124,7 +124,7 @@ This implementation plan breaks down the AWS serverless backend infrastructure i
     - _Requirements: 3.3.4, 3.6_
 
 - [ ] 8. Implement and deploy getPlans Lambda function
-  - [ ] 8.1 Create getPlans Lambda function with GSI query
+  - [x] 8.1 Create getPlans Lambda function with GSI query
     - Implement handler with pathParameters extraction
     - Add validation for userId parameter
     - Implement DynamoDB Query operation using userId-index GSI
@@ -135,20 +135,20 @@ This implementation plan breaks down the AWS serverless backend infrastructure i
     - Add comprehensive logging
     - _Requirements: 3.3.5, 3.6_
 
-  - [ ] 8.2 Write unit tests for getPlans
+  - [~] 8.2 Write unit tests for getPlans
     - Test successful retrieval of plans for user with plans
     - Test empty array response for user with no plans
     - Test validation error for missing userId
     - _Requirements: 3.3.5, 3.6_
 
-- [ ] 9. Set up API Gateway REST API
+- [~] 9. Set up API Gateway REST API
   - Create REST API named `savesmart-api`
   - Create resources: /users, /users/{userId}, /chat, /plans, /plans/{userId}
   - Configure CORS for all resources (Allow-Origin: *, Allow-Headers: Content-Type,Authorization, Allow-Methods: GET,POST,PUT,OPTIONS)
   - Create OPTIONS methods for CORS preflight requests
   - _Requirements: 3.2_
 
-- [ ] 10. Integrate Lambda functions with API Gateway
+- [~] 10. Integrate Lambda functions with API Gateway
   - Create POST /users integration with saveUser Lambda (proxy integration)
   - Create GET /users/{userId} integration with getUser Lambda (proxy integration)
   - Create PUT /users/{userId} integration with updateUser Lambda (proxy integration)
@@ -157,18 +157,18 @@ This implementation plan breaks down the AWS serverless backend infrastructure i
   - Configure method responses for each endpoint
   - _Requirements: 3.2, 3.3_
 
-- [ ] 11. Deploy API Gateway to prod stage
+- [~] 11. Deploy API Gateway to prod stage
   - Create deployment to `prod` stage
   - Note the API Gateway URL (format: https://{api-id}.execute-api.ap-southeast-2.amazonaws.com/prod)
   - Test all endpoints using the prod URL
   - _Requirements: 3.2_
 
-- [ ] 12. Configure environment variables for chat Lambda
+- [~] 12. Configure environment variables for chat Lambda
   - Set N8N_WEBHOOK_URL environment variable in chat Lambda configuration
   - Verify environment variable is accessible in Lambda function
   - _Requirements: 3.3.4_
 
-- [ ] 13. Create demo data for testing
+- [~] 13. Create demo data for testing
   - Insert Sarah's demo user profile into savesmart-users table
   - Use userId: demo-sarah-123
   - Populate all profile fields with demo data
@@ -176,18 +176,18 @@ This implementation plan breaks down the AWS serverless backend infrastructure i
   - _Requirements: 5.1_
 
 - [ ] 14. End-to-end integration testing
-  - [ ] 14.1 Write property test for standardized error format
+  - [~] 14.1 Write property test for standardized error format
     - **Property 6: Standardized Error Format**
     - **Validates: Requirements 3.6**
 
-  - [ ] 14.2 Write integration tests for complete flows
+  - [~] 14.2 Write integration tests for complete flows
     - Test user creation → retrieval → update → retrieval flow
     - Test chat flow: create user → send chat → verify plan saved → retrieve plans
     - Test CORS headers present in all responses
     - Test error responses from all endpoints
     - _Requirements: 3.3, 3.6_
 
-- [ ] 15. Final checkpoint - Verify all endpoints operational
+- [~] 15. Final checkpoint - Verify all endpoints operational
   - Test POST /users with valid data returns 200
   - Test GET /users/{userId} with valid userId returns 200
   - Test PUT /users/{userId} with valid updates returns 200
@@ -198,7 +198,7 @@ This implementation plan breaks down the AWS serverless backend infrastructure i
   - Check CloudWatch Logs for any errors
   - Ensure all tests pass, ask the user if questions arise
 
-- [ ] 16. Create API documentation and handoff materials
+- [~] 16. Create API documentation and handoff materials
   - Document API Gateway URL
   - Create example request/response payloads for each endpoint
   - Document error response formats
