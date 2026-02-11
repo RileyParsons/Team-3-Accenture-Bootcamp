@@ -12,6 +12,9 @@ interface RecurringCost {
 }
 
 interface UserProfile {
+  name: string;
+  location: string;
+  postcode: string;
   livingOutOfHome: boolean;
   monthlyIncome: number;
   incomeFrequency: 'weekly' | 'fortnightly' | 'monthly';
@@ -34,7 +37,23 @@ const DEFAULT_RECURRING_COSTS: RecurringCost[] = [
 export default function Onboarding() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Get user data from localStorage to pre-fill name
+  const getUserData = () => {
+    const userDataStr = localStorage.getItem('savesmart_user');
+    if (userDataStr) {
+      const userData = JSON.parse(userDataStr);
+      return `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
+    }
+    return '';
+  };
+
   const [profile, setProfile] = useState<UserProfile>({
+    name: getUserData(),
+    location: "",
+    postcode: "",
     livingOutOfHome: false,
     monthlyIncome: 0,
     incomeFrequency: 'monthly',
@@ -47,14 +66,129 @@ export default function Onboarding() {
     timeframe: ""
   });
 
-  const totalSteps = 5;
+  const totalSteps = 6;
 
-  const handleNext = () => {
+  const handleNext = async () => {
+    // Clear any previous errors
+    setError(null);
+
     if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
     } else {
-      // Navigate to chat interface (we'll create this later)
+      // Save profile to backend
+      await handleSubmit();
+    }
+  };
+
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      // Get user data from localStorage (set during signup)
+      const userDataStr = localStorage.getItem('savesmart_user');
+      const userData = userDataStr ? JSON.parse(userDataStr) : null;
+
+      if (!userData || !userData.email) {
+        throw new Error('User not found. Please sign up first.');
+      }
+
+      // Generate userId from email
+      const userId = userData.email.replace('@', '-').replace(/\./g, '-');
+
+      // Convert frequencies to monthly amounts
+      const getMonthlyAmount = (amount: number, frequency: 'weekly' | 'fortnightly' | 'monthly') => {
+        switch (frequency) {
+          case 'weekly': return amount * 4.33;
+          case 'fortnightly': return amount * 2.17;
+          case 'monthly': return amount;
+          default: return amount;
+        }
+      };
+
+      const monthlyIncome = getMonthlyAmount(profile.monthlyIncome, profile.incomeFrequency);
+
+      // Build recurringExpenses array from all expenses
+      const recurringExpenses = [];
+
+      // Add rent if living out of home
+      if (profile.livingOutOfHome && profile.monthlyRent > 0) {
+        recurringExpenses.push({
+          name: "Rent",
+          amount: profile.monthlyRent,
+          frequency: profile.rentFrequency,
+          isFixed: true
+        });
+      }
+
+      // Add groceries
+      if (profile.weeklyGroceryBudget > 0) {
+        recurringExpenses.push({
+          name: "Groceries",
+          amount: profile.weeklyGroceryBudget,
+          frequency: "weekly",
+          isFixed: false
+        });
+      }
+
+      // Add other recurring costs (Phone, Internet, Fuel, custom expenses)
+      profile.recurringCosts.forEach(cost => {
+        if (cost.amount > 0 && cost.name.trim() !== '') {
+          recurringExpenses.push({
+            name: cost.name,
+            amount: cost.amount,
+            frequency: cost.frequency,
+            isFixed: cost.type === 'fixed'
+          });
+        }
+      });
+
+      // Prepare user profile for backend (NEW SCHEMA)
+      const userProfile = {
+        userId: userId,
+        email: userData.email,
+        name: profile.name.trim() || `${userData.firstName} ${userData.lastName}`,
+        income: Math.round(monthlyIncome),
+        incomeFrequency: profile.incomeFrequency,
+        savings: profile.currentSavings,
+        location: profile.location.trim() || null,
+        postcode: profile.postcode.trim() || null,
+        recurringExpenses: recurringExpenses
+      };
+
+      // Save to localStorage as backup
+      localStorage.setItem('savesmart_profile', JSON.stringify(userProfile));
+
+      // Try to save to backend API
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      const useMock = process.env.NEXT_PUBLIC_USE_MOCK === 'true';
+
+      if (apiUrl && !useMock) {
+        const response = await fetch(`${apiUrl}/test_users`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(userProfile),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Failed to save profile: ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log('Profile saved to backend:', result);
+      } else {
+        console.log('Mock mode: Profile saved to localStorage only');
+      }
+
+      // Navigate to chat interface
       router.push('/chat');
+    } catch (err) {
+      console.error('Error saving profile:', err);
+      setError(err instanceof Error ? err.message : 'Failed to save profile');
+      setIsSubmitting(false);
     }
   };
 
@@ -74,7 +208,7 @@ export default function Onboarding() {
   };
 
   const updateRecurringCost = (index: number, updates: Partial<RecurringCost>) => {
-    const updatedCosts = profile.recurringCosts.map((cost, i) => 
+    const updatedCosts = profile.recurringCosts.map((cost, i) =>
       i === index ? { ...cost, ...updates } : cost
     );
     updateProfile({ recurringCosts: updatedCosts });
@@ -88,6 +222,59 @@ export default function Onboarding() {
   const renderStep = () => {
     switch (currentStep) {
       case 1:
+        return (
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold text-gray-900">Welcome! Let's Get Started</h2>
+            <h2 className="text-2xl font-bold text-gray-900">
+              Welcome{profile.name ? `, ${profile.name.split(' ')[0]}` : ''}! 👋
+            </h2>
+            <p className="text-gray-600">Let's set up your savings profile. This will only take 2-3 minutes.</p>
+
+            <div className="p-4 bg-blue-50 border-2 border-blue-200 rounded-lg">
+              <div className="text-sm text-blue-800 mb-3">
+                <div className="font-semibold mb-1">📍 Optional: Help us find local deals</div>
+                <div>You can give your approximate location to help us find the best prices and deals near you.</div>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    City or Suburb
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Parramatta, Sydney CBD, Melbourne"
+                    value={profile.location}
+                    onChange={(e) => updateProfile({ location: e.target.value })}
+                    className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none"
+                  />
+                </div>
+
+                <div className="text-center text-gray-500 text-sm">OR</div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Postcode
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 2150, 3000"
+                    value={profile.postcode}
+                    onChange={(e) => updateProfile({ postcode: e.target.value })}
+                    className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none"
+                    maxLength={4}
+                  />
+                </div>
+              </div>
+
+              <div className="text-xs text-gray-500 mt-2">
+                💡 You can skip this and add it later in your profile
+              </div>
+            </div>
+          </div>
+        );
+
+      case 2:
         return (
           <div className="space-y-6">
             <h2 className="text-2xl font-bold text-gray-900">Living Situation</h2>
@@ -112,7 +299,7 @@ export default function Onboarding() {
                 <div className="text-sm text-gray-600">Living with family/parents</div>
               </button>
             </div>
-            
+
             {profile.livingOutOfHome && (
               <div className="mt-6 p-4 bg-green-50 border-2 border-green-200 rounded-lg">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -150,7 +337,7 @@ export default function Onboarding() {
           </div>
         );
 
-      case 2:
+      case 3:
         return (
           <div className="space-y-6">
             <h2 className="text-2xl font-bold text-gray-900">Income</h2>
@@ -191,7 +378,7 @@ export default function Onboarding() {
           </div>
         );
 
-      case 3:
+      case 4:
         return (
           <div className="space-y-6">
             <h2 className="text-2xl font-bold text-gray-900">Grocery Budget</h2>
@@ -211,7 +398,7 @@ export default function Onboarding() {
           </div>
         );
 
-      case 4:
+      case 5:
         return (
           <div className="space-y-6">
             <h2 className="text-2xl font-bold text-gray-900">Current Savings</h2>
@@ -231,12 +418,12 @@ export default function Onboarding() {
           </div>
         );
 
-      case 5:
+      case 6:
         return (
           <div className="space-y-6">
             <h2 className="text-2xl font-bold text-gray-900">Recurring Costs</h2>
             <p className="text-gray-600">Review and update your regular expenses. Add amounts for what applies to you, or remove items you don't have.</p>
-            
+
             <div className="space-y-4">
               {profile.recurringCosts.map((cost, index) => (
                 <div key={index} className={`p-4 rounded-lg space-y-3 border-2 transition-colors ${
@@ -258,7 +445,7 @@ export default function Onboarding() {
                       <Minus className="h-4 w-4" />
                     </button>
                   </div>
-                  
+
                   <div className="grid grid-cols-3 gap-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">Amount ($)</label>
@@ -270,7 +457,7 @@ export default function Onboarding() {
                         className="w-full p-2 border border-gray-300 rounded focus:border-green-500 focus:outline-none"
                       />
                     </div>
-                    
+
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">Frequency</label>
                       <select
@@ -283,7 +470,7 @@ export default function Onboarding() {
                         <option value="yearly">Yearly</option>
                       </select>
                     </div>
-                    
+
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">Type</label>
                       <select
@@ -298,7 +485,7 @@ export default function Onboarding() {
                   </div>
                 </div>
               ))}
-              
+
               <button
                 onClick={addRecurringCost}
                 className="w-full p-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-green-500 hover:text-green-600 transition-colors flex items-center justify-center space-x-2"
@@ -307,7 +494,7 @@ export default function Onboarding() {
                 <span>Add Custom Expense</span>
               </button>
             </div>
-            
+
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <div className="text-sm text-blue-800">
                 <div className="font-semibold mb-1">💡 Tips:</div>
@@ -318,7 +505,7 @@ export default function Onboarding() {
                 </div>
               </div>
             </div>
-            
+
             <div className="text-sm text-gray-500">
               {profile.recurringCosts.filter(c => c.amount > 0).length} of {profile.recurringCosts.length} expenses have amounts added
             </div>
@@ -349,7 +536,7 @@ export default function Onboarding() {
       <div className="px-6">
         <div className="max-w-4xl mx-auto">
           <div className="w-full bg-gray-200 rounded-full h-2">
-            <div 
+            <div
               className="bg-green-600 h-2 rounded-full transition-all duration-300"
               style={{ width: `${(currentStep / totalSteps) * 100}%` }}
             ></div>
@@ -362,23 +549,44 @@ export default function Onboarding() {
         <div className="bg-white rounded-xl shadow-lg p-8">
           {renderStep()}
 
+          {/* Error Message */}
+          {error && (
+            <div className="mt-6 p-4 bg-red-50 border-2 border-red-200 rounded-lg">
+              <div className="text-red-800 text-sm">
+                <div className="font-semibold mb-1">⚠️ Error saving profile:</div>
+                <div>{error}</div>
+                <div className="mt-2 text-xs">Profile saved to browser storage as backup.</div>
+              </div>
+            </div>
+          )}
+
           {/* Navigation */}
           <div className="flex justify-between mt-8">
             <button
               onClick={handleBack}
-              disabled={currentStep === 1}
+              disabled={currentStep === 1 || isSubmitting}
               className="flex items-center space-x-2 px-6 py-3 rounded-lg border-2 border-gray-200 text-gray-600 hover:border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <ChevronLeft className="h-4 w-4" />
               <span>Back</span>
             </button>
-            
+
             <button
               onClick={handleNext}
-              className="flex items-center space-x-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              disabled={isSubmitting}
+              className="flex items-center space-x-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              <span>{currentStep === totalSteps ? 'Complete Setup' : 'Next'}</span>
-              <ChevronRight className="h-4 w-4" />
+              {isSubmitting ? (
+                <>
+                  <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <span>{currentStep === totalSteps ? 'Complete Setup' : 'Next'}</span>
+                  <ChevronRight className="h-4 w-4" />
+                </>
+              )}
             </button>
           </div>
         </div>
