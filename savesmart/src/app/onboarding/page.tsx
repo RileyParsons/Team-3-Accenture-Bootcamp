@@ -14,7 +14,9 @@ interface RecurringCost {
 interface UserProfile {
   livingOutOfHome: boolean;
   monthlyIncome: number;
+  incomeFrequency: 'weekly' | 'fortnightly' | 'monthly';
   monthlyRent: number;
+  rentFrequency: 'weekly' | 'fortnightly' | 'monthly';
   weeklyGroceryBudget: number;
   currentSavings: number;
   recurringCosts: RecurringCost[];
@@ -35,7 +37,9 @@ export default function Onboarding() {
   const [profile, setProfile] = useState<UserProfile>({
     livingOutOfHome: false,
     monthlyIncome: 0,
+    incomeFrequency: 'monthly',
     monthlyRent: 0,
+    rentFrequency: 'weekly',
     weeklyGroceryBudget: 0,
     currentSavings: 0,
     recurringCosts: [...DEFAULT_RECURRING_COSTS],
@@ -99,7 +103,7 @@ export default function Onboarding() {
                 <div className="text-sm text-gray-600">Paying rent or sharing accommodation</div>
               </button>
               <button
-                onClick={() => updateProfile({ livingOutOfHome: false, monthlyRent: 0 })}
+                onClick={() => updateProfile({ livingOutOfHome: false, monthlyRent: 0, rentFrequency: 'weekly' })}
                 className={`w-full p-4 rounded-lg border-2 text-left transition-colors ${
                   !profile.livingOutOfHome ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-gray-300'
                 }`}
@@ -112,16 +116,33 @@ export default function Onboarding() {
             {profile.livingOutOfHome && (
               <div className="mt-6 p-4 bg-green-50 border-2 border-green-200 rounded-lg">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Monthly Rent
+                  Rent
                 </label>
-                <input
-                  type="number"
-                  placeholder="e.g. 600"
-                  value={profile.monthlyRent || ''}
-                  onChange={(e) => updateProfile({ monthlyRent: parseInt(e.target.value) || 0 })}
-                  className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none text-lg"
-                />
-                <div className="text-sm text-gray-500 mt-1">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Amount ($)</label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 150"
+                      value={profile.monthlyRent || ''}
+                      onChange={(e) => updateProfile({ monthlyRent: parseInt(e.target.value) || 0 })}
+                      className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none text-lg"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Frequency</label>
+                    <select
+                      value={profile.rentFrequency}
+                      onChange={(e) => updateProfile({ rentFrequency: e.target.value as 'weekly' | 'fortnightly' | 'monthly' })}
+                      className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none text-lg"
+                    >
+                      <option value="weekly">Weekly</option>
+                      <option value="fortnightly">Fortnightly</option>
+                      <option value="monthly">Monthly</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="text-sm text-gray-500 mt-2">
                   Include: rent, utilities, internet (if included in rent)
                 </div>
               </div>
@@ -132,16 +153,37 @@ export default function Onboarding() {
       case 2:
         return (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Monthly Income</h2>
-            <p className="text-gray-600">What's your monthly income from work/study allowance?</p>
+            <h2 className="text-2xl font-bold text-gray-900">Income</h2>
+            <p className="text-gray-600">What's your income from work/study allowance?</p>
             <div className="space-y-4">
-              <input
-                type="number"
-                placeholder="e.g. 1200"
-                value={profile.monthlyIncome || ''}
-                onChange={(e) => updateProfile({ monthlyIncome: parseInt(e.target.value) || 0 })}
-                className="w-full p-4 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none text-lg"
-              />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Amount ($)
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 1200"
+                    value={profile.monthlyIncome || ''}
+                    onChange={(e) => updateProfile({ monthlyIncome: parseInt(e.target.value) || 0 })}
+                    className="w-full p-4 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none text-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Frequency
+                  </label>
+                  <select
+                    value={profile.incomeFrequency}
+                    onChange={(e) => updateProfile({ incomeFrequency: e.target.value as 'weekly' | 'fortnightly' | 'monthly' })}
+                    className="w-full p-4 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none text-lg"
+                  >
+                    <option value="weekly">Weekly</option>
+                    <option value="fortnightly">Fortnightly</option>
+                    <option value="monthly">Monthly</option>
+                  </select>
+                </div>
+              </div>
               <div className="text-sm text-gray-500">
                 Include: part-time job, Austudy, Youth Allowance, family support
               </div>
