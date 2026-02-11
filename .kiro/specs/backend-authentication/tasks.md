@@ -107,11 +107,11 @@ This implementation plan breaks down the backend authentication feature into dis
     - Test error handling for database failures
     - _Requirements: 1.5, 2.1, 6.1_
 
-- [-] 6. Checkpoint - Ensure all core service tests pass
+- [x] 6. Checkpoint - Ensure all core service tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 7. Implement registration handler
-  - [~] 7.1 Create handleRegister function in auth Lambda
+  - [x] 7.1 Create handleRegister function in auth Lambda
     - Validate request payload (email, password)
     - Check if email already exists (return 409 if exists)
     - Hash password using PasswordService
@@ -136,7 +136,7 @@ This implementation plan breaks down the backend authentication feature into dis
     - _Requirements: 1.1, 1.2, 1.3, 1.6_
 
 - [ ] 8. Implement login handler
-  - [~] 8.1 Create handleLogin function in auth Lambda
+  - [x] 8.1 Create handleLogin function in auth Lambda
     - Validate request payload (email, password)
     - Get user by email via UserRepository
     - Return generic error if user not found
@@ -165,7 +165,7 @@ This implementation plan breaks down the backend authentication feature into dis
     - _Requirements: 2.1, 2.2, 2.3, 2.6_
 
 - [ ] 9. Implement token refresh handler
-  - [~] 9.1 Create handleRefresh function in auth Lambda
+  - [x] 9.1 Create handleRefresh function in auth Lambda
     - Validate request payload (refreshToken)
     - Validate refresh token using TokenService
     - Check token type is "refresh"
@@ -189,7 +189,7 @@ This implementation plan breaks down the backend authentication feature into dis
     - _Requirements: 5.1, 5.4, 5.5_
 
 - [ ] 10. Implement password reset request handler
-  - [~] 10.1 Create handleResetRequest function in auth Lambda
+  - [x] 10.1 Create handleResetRequest function in auth Lambda
     - Validate request payload (email)
     - Get user by email via UserRepository
     - Generate unique reset token (UUID v4)
@@ -210,7 +210,7 @@ This implementation plan breaks down the backend authentication feature into dis
     - _Requirements: 6.1, 6.2, 6.5_
 
 - [ ] 11. Implement password reset completion handler
-  - [~] 11.1 Create handleResetComplete function in auth Lambda
+  - [x] 11.1 Create handleResetComplete function in auth Lambda
     - Validate request payload (resetToken, newPassword)
     - Validate new password meets requirements
     - Hash the provided reset token

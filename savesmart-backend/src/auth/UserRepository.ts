@@ -16,6 +16,7 @@ import {
   GetItemCommand,
   QueryCommand,
   UpdateItemCommand,
+  ScanCommand,
 } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 
@@ -171,5 +172,35 @@ export class UserRepository {
         UpdateExpression: 'REMOVE resetToken, resetTokenExpiry',
       })
     );
+  }
+
+  /**
+   * Retrieves all users from the table
+   * Note: This is inefficient and should only be used for development/testing
+   * In production, use a GSI on resetToken for password reset lookups
+   * Requirements: 7.1
+   *
+   * @returns Array of all user records
+   */
+  async getAllUsers(): Promise<UserRecord[]> {
+    const users: UserRecord[] = [];
+    let lastEvaluatedKey: Record<string, any> | undefined = undefined;
+
+    do {
+      const result: any = await this.dynamoClient.send(
+        new ScanCommand({
+          TableName: this.tableName,
+          ExclusiveStartKey: lastEvaluatedKey,
+        })
+      );
+
+      if (result.Items) {
+        users.push(...result.Items.map((item: any) => unmarshall(item) as UserRecord));
+      }
+
+      lastEvaluatedKey = result.LastEvaluatedKey;
+    } while (lastEvaluatedKey);
+
+    return users;
   }
 }
