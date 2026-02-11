@@ -1,0 +1,150 @@
+{
+  "info": {
+    "name": "SaveSmart API",
+    "description": "API endpoints for SaveSmart application",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://YOUR-API-GATEWAY-URL.execute-api.ap-southeast-2.amazonaws.com/prod",
+      "type": "string"
+    },
+    {
+      "key": "test_user_id",
+      "value": "demo-sarah-123",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Create User (POST /users)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userId\": \"{{test_user_id}}\",\n  \"email\": \"sarah@student.com\",\n  \"name\": \"Sarah\",\n  \"income\": 1200,\n  \"rent\": 600,\n  \"groceryBudget\": 80,\n  \"savings\": 500,\n  \"hasCar\": true,\n  \"fuelType\": \"E10\",\n  \"location\": \"Parramatta\",\n  \"postcode\": \"2150\",\n  \"dietaryPreferences\": [\"vegetarian\"],\n  \"subscriptions\": [\"Netflix\", \"Spotify\"]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/users",
+          "host": ["{{base_url}}"],
+          "path": ["users"]
+        }
+      }
+    },
+    {
+      "name": "2. Get User (GET /users/{userId})",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/users/{{test_user_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["users", "{{test_user_id}}"]
+        }
+      }
+    },
+    {
+      "name": "3. Update User (PUT /users/{userId})",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userId\": \"{{test_user_id}}\",\n  \"email\": \"sarah@student.com\",\n  \"name\": \"Sarah\",\n  \"income\": 1300,\n  \"rent\": 600,\n  \"groceryBudget\": 90,\n  \"savings\": 600,\n  \"hasCar\": true,\n  \"fuelType\": \"E10\",\n  \"location\": \"Parramatta\",\n  \"postcode\": \"2150\",\n  \"dietaryPreferences\": [\"vegetarian\"],\n  \"subscriptions\": [\"Spotify\"]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/users/{{test_user_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["users", "{{test_user_id}}"]
+        }
+      }
+    },
+    {
+      "name": "4. Chat - Savings Goal (POST /chat)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userId\": \"{{test_user_id}}\",\n  \"message\": \"I want to save $3,000 in 6 months for a Japan trip\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/chat",
+          "host": ["{{base_url}}"],
+          "path": ["chat"]
+        }
+      }
+    },
+    {
+      "name": "5. Chat - Grocery Savings (POST /chat)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userId\": \"{{test_user_id}}\",\n  \"message\": \"Help me save money on groceries\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/chat",
+          "host": ["{{base_url}}"],
+          "path": ["chat"]
+        }
+      }
+    },
+    {
+      "name": "6. Chat - Fuel Optimization (POST /chat)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userId\": \"{{test_user_id}}\",\n  \"message\": \"Where can I find cheap fuel near me?\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/chat",
+          "host": ["{{base_url}}"],
+          "path": ["chat"]
+        }
+      }
+    },
+    {
+      "name": "7. Get Plans (GET /plans/{userId})",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/plans/{{test_user_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["plans", "{{test_user_id}}"]
+        }
+      }
+    }
+  ]
+}

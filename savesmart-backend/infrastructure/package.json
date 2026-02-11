@@ -1,0 +1,13 @@
+{
+  "name": "savesmart-infrastructure",
+  "version": "1.0.0",
+  "description": "Infrastructure setup scripts for SaveSmart backend",
+  "type": "module",
+  "scripts": {
+    "setup": "node setup-dynamodb.js",
+    "verify": "node verify-tables.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.700.0"
+  }
+}
