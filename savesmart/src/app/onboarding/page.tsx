@@ -1,8 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { PiggyBank, ChevronRight, ChevronLeft } from "lucide-react";
+import { PiggyBank, ChevronRight, ChevronLeft, Plus, Minus } from "lucide-react";
 import { useRouter } from "next/navigation";
+
+interface RecurringCost {
+  name: string;
+  amount: number;
+  frequency: 'weekly' | 'monthly' | 'yearly';
+  type: 'fixed' | 'variable';
+}
 
 interface UserProfile {
   livingOutOfHome: boolean;
@@ -10,19 +17,17 @@ interface UserProfile {
   monthlyRent: number;
   weeklyGroceryBudget: number;
   currentSavings: number;
-  hasCard: boolean;
-  fuelType: string;
-  subscriptions: string[];
+  recurringCosts: RecurringCost[];
   savingsGoal: string;
   timeframe: string;
 }
 
-const SUBSCRIPTION_OPTIONS = [
-  "Netflix", "Spotify", "Disney+", "Amazon Prime", "YouTube Premium", 
-  "Apple Music", "Stan", "Binge", "Kayo Sports", "Adobe Creative Cloud"
+const DEFAULT_RECURRING_COSTS: RecurringCost[] = [
+  { name: "Phone Bill", amount: 0, frequency: 'monthly', type: 'fixed' },
+  { name: "Internet", amount: 0, frequency: 'monthly', type: 'fixed' },
+  { name: "Fuel", amount: 0, frequency: 'weekly', type: 'variable' }
 ];
 
-const FUEL_TYPES = ["Petrol (E10)", "Petrol (91)", "Petrol (95)", "Petrol (98)", "Diesel", "Don't drive"];
 
 export default function Onboarding() {
   const router = useRouter();
@@ -33,14 +38,12 @@ export default function Onboarding() {
     monthlyRent: 0,
     weeklyGroceryBudget: 0,
     currentSavings: 0,
-    hasCard: false,
-    fuelType: "",
-    subscriptions: [],
+    recurringCosts: [...DEFAULT_RECURRING_COSTS],
     savingsGoal: "",
     timeframe: ""
   });
 
-  const totalSteps = 7;
+  const totalSteps = 5;
 
   const handleNext = () => {
     if (currentStep < totalSteps) {
@@ -61,11 +64,21 @@ export default function Onboarding() {
     setProfile(prev => ({ ...prev, ...updates }));
   };
 
-  const toggleSubscription = (subscription: string) => {
-    const newSubs = profile.subscriptions.includes(subscription)
-      ? profile.subscriptions.filter(s => s !== subscription)
-      : [...profile.subscriptions, subscription];
-    updateProfile({ subscriptions: newSubs });
+  const addRecurringCost = () => {
+    const newCost: RecurringCost = { name: "", amount: 0, frequency: 'monthly', type: 'fixed' };
+    updateProfile({ recurringCosts: [...profile.recurringCosts, newCost] });
+  };
+
+  const updateRecurringCost = (index: number, updates: Partial<RecurringCost>) => {
+    const updatedCosts = profile.recurringCosts.map((cost, i) => 
+      i === index ? { ...cost, ...updates } : cost
+    );
+    updateProfile({ recurringCosts: updatedCosts });
+  };
+
+  const removeRecurringCost = (index: number) => {
+    const updatedCosts = profile.recurringCosts.filter((_, i) => i !== index);
+    updateProfile({ recurringCosts: updatedCosts });
   };
 
   const renderStep = () => {
@@ -86,7 +99,7 @@ export default function Onboarding() {
                 <div className="text-sm text-gray-600">Paying rent or sharing accommodation</div>
               </button>
               <button
-                onClick={() => updateProfile({ livingOutOfHome: false })}
+                onClick={() => updateProfile({ livingOutOfHome: false, monthlyRent: 0 })}
                 className={`w-full p-4 rounded-lg border-2 text-left transition-colors ${
                   !profile.livingOutOfHome ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-gray-300'
                 }`}
@@ -95,6 +108,24 @@ export default function Onboarding() {
                 <div className="text-sm text-gray-600">Living with family/parents</div>
               </button>
             </div>
+            
+            {profile.livingOutOfHome && (
+              <div className="mt-6 p-4 bg-green-50 border-2 border-green-200 rounded-lg">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Monthly Rent
+                </label>
+                <input
+                  type="number"
+                  placeholder="e.g. 600"
+                  value={profile.monthlyRent || ''}
+                  onChange={(e) => updateProfile({ monthlyRent: parseInt(e.target.value) || 0 })}
+                  className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none text-lg"
+                />
+                <div className="text-sm text-gray-500 mt-1">
+                  Include: rent, utilities, internet (if included in rent)
+                </div>
+              </div>
+            )}
           </div>
         );
 
@@ -121,35 +152,6 @@ export default function Onboarding() {
       case 3:
         return (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Monthly Rent</h2>
-            <p className="text-gray-600">
-              {profile.livingOutOfHome ? "How much do you pay in rent per month?" : "Great! Living at home saves money on rent."}
-            </p>
-            {profile.livingOutOfHome ? (
-              <div className="space-y-4">
-                <input
-                  type="number"
-                  placeholder="e.g. 600"
-                  value={profile.monthlyRent || ''}
-                  onChange={(e) => updateProfile({ monthlyRent: parseInt(e.target.value) || 0 })}
-                  className="w-full p-4 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none text-lg"
-                />
-                <div className="text-sm text-gray-500">
-                  Include: rent, utilities, internet (if included in rent)
-                </div>
-              </div>
-            ) : (
-              <div className="p-4 bg-green-50 border-2 border-green-200 rounded-lg">
-                <div className="font-semibold text-green-800">Rent: $0/month</div>
-                <div className="text-sm text-green-600">This gives you a big advantage for saving!</div>
-              </div>
-            )}
-          </div>
-        );
-
-      case 4:
-        return (
-          <div className="space-y-6">
             <h2 className="text-2xl font-bold text-gray-900">Grocery Budget</h2>
             <p className="text-gray-600">How much do you typically spend on groceries per week?</p>
             <div className="space-y-4">
@@ -167,7 +169,7 @@ export default function Onboarding() {
           </div>
         );
 
-      case 5:
+      case 4:
         return (
           <div className="space-y-6">
             <h2 className="text-2xl font-bold text-gray-900">Current Savings</h2>
@@ -187,49 +189,96 @@ export default function Onboarding() {
           </div>
         );
 
-      case 6:
+      case 5:
         return (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Transport & Fuel</h2>
-            <p className="text-gray-600">Do you drive? What fuel type?</p>
-            <div className="space-y-3">
-              {FUEL_TYPES.map((fuel) => (
-                <button
-                  key={fuel}
-                  onClick={() => updateProfile({ fuelType: fuel, hasCard: fuel !== "Don't drive" })}
-                  className={`w-full p-4 rounded-lg border-2 text-left transition-colors ${
-                    profile.fuelType === fuel ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  {fuel}
-                </button>
+            <h2 className="text-2xl font-bold text-gray-900">Recurring Costs</h2>
+            <p className="text-gray-600">Review and update your regular expenses. Add amounts for what applies to you, or remove items you don't have.</p>
+            
+            <div className="space-y-4">
+              {profile.recurringCosts.map((cost, index) => (
+                <div key={index} className={`p-4 rounded-lg space-y-3 border-2 transition-colors ${
+                  cost.amount > 0 ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
+                }`}>
+                  <div className="flex justify-between items-center">
+                    <input
+                      type="text"
+                      placeholder="e.g. Netflix, Phone Bill, Transport"
+                      value={cost.name}
+                      onChange={(e) => updateRecurringCost(index, { name: e.target.value })}
+                      className="flex-1 p-2 border border-gray-300 rounded focus:border-green-500 focus:outline-none font-medium"
+                    />
+                    <button
+                      onClick={() => removeRecurringCost(index)}
+                      className="ml-2 p-2 text-red-500 hover:bg-red-50 rounded transition-colors"
+                      title="Remove this expense"
+                    >
+                      <Minus className="h-4 w-4" />
+                    </button>
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Amount ($)</label>
+                      <input
+                        type="number"
+                        placeholder="0"
+                        value={cost.amount || ''}
+                        onChange={(e) => updateRecurringCost(index, { amount: parseFloat(e.target.value) || 0 })}
+                        className="w-full p-2 border border-gray-300 rounded focus:border-green-500 focus:outline-none"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Frequency</label>
+                      <select
+                        value={cost.frequency}
+                        onChange={(e) => updateRecurringCost(index, { frequency: e.target.value as 'weekly' | 'monthly' | 'yearly' })}
+                        className="w-full p-2 border border-gray-300 rounded focus:border-green-500 focus:outline-none"
+                      >
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
+                        <option value="yearly">Yearly</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Type</label>
+                      <select
+                        value={cost.type}
+                        onChange={(e) => updateRecurringCost(index, { type: e.target.value as 'fixed' | 'variable' })}
+                        className="w-full p-2 border border-gray-300 rounded focus:border-green-500 focus:outline-none"
+                      >
+                        <option value="fixed">Fixed</option>
+                        <option value="variable">Variable</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
               ))}
+              
+              <button
+                onClick={addRecurringCost}
+                className="w-full p-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-green-500 hover:text-green-600 transition-colors flex items-center justify-center space-x-2"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Add Custom Expense</span>
+              </button>
             </div>
-          </div>
-        );
-
-      case 7:
-        return (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Active Subscriptions</h2>
-            <p className="text-gray-600">Which of these services do you currently pay for?</p>
-            <div className="grid grid-cols-2 gap-3">
-              {SUBSCRIPTION_OPTIONS.map((sub) => (
-                <button
-                  key={sub}
-                  onClick={() => toggleSubscription(sub)}
-                  className={`p-3 rounded-lg border-2 text-sm transition-colors ${
-                    profile.subscriptions.includes(sub) 
-                      ? 'border-green-500 bg-green-50 text-green-700' 
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  {sub}
-                </button>
-              ))}
+            
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="text-sm text-blue-800">
+                <div className="font-semibold mb-1">💡 Tips:</div>
+                <div className="space-y-1">
+                  <div>• Add amounts for expenses you have (items turn green when filled)</div>
+                  <div>• Remove items you don't need by clicking the ✖ button</div>
+                  <div>• Leave amounts at $0 for expenses you're not sure about</div>
+                </div>
+              </div>
             </div>
+            
             <div className="text-sm text-gray-500">
-              Selected: {profile.subscriptions.length} services
+              {profile.recurringCosts.filter(c => c.amount > 0).length} of {profile.recurringCosts.length} expenses have amounts added
             </div>
           </div>
         );
