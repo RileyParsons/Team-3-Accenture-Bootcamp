@@ -6,7 +6,7 @@ This implementation plan breaks down the backend authentication feature into dis
 
 ## Tasks
 
-- [-] 1. Set up project structure and dependencies
+- [x] 1. Set up project structure and dependencies
   - Create directory structure for auth Lambda and shared utilities
   - Install dependencies: jsonwebtoken, bcryptjs, uuid, aws-sdk, fast-check (dev)
   - Set up Jest testing framework with fast-check integration
@@ -14,7 +14,7 @@ This implementation plan breaks down the backend authentication feature into dis
   - _Requirements: 10.5_
 
 - [ ] 2. Implement core validation service
-  - [~] 2.1 Create ValidationService class with email and password validation
+  - [x] 2.1 Create ValidationService class with email and password validation
     - Implement email format validation (regex for standard email format)
     - Implement password requirements validation (8 chars, 1 upper, 1 lower, 1 number)
     - Implement request payload validation methods
@@ -34,7 +34,7 @@ This implementation plan breaks down the backend authentication feature into dis
     - _Requirements: 1.1, 1.2_
 
 - [ ] 3. Implement password service
-  - [~] 3.1 Create PasswordService class with bcrypt operations
+  - [x] 3.1 Create PasswordService class with bcrypt operations
     - Implement hashPassword method (bcrypt with 10 salt rounds)
     - Implement verifyPassword method
     - Implement validatePasswordRequirements method
@@ -54,7 +54,7 @@ This implementation plan breaks down the backend authentication feature into dis
     - _Requirements: 1.4, 2.2_
 
 - [ ] 4. Implement token service
-  - [~] 4.1 Create TokenService class with JWT operations
+  - [x] 4.1 Create TokenService class with JWT operations
     - Implement generateAccessToken method (1 hour expiration, includes userId, email, type)
     - Implement generateRefreshToken method (7 day expiration, includes userId, type)
     - Implement validateToken method with signature and expiration checks
@@ -88,7 +88,7 @@ This implementation plan breaks down the backend authentication feature into dis
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 4.1_
 
 - [ ] 5. Implement user repository
-  - [~] 5.1 Create UserRepository class with DynamoDB operations
+  - [x] 5.1 Create UserRepository class with DynamoDB operations
     - Implement createUser method (userId, email, hashedPassword, createdAt)
     - Implement getUserById method
     - Implement getUserByEmail method (uses email-index GSI)
@@ -107,7 +107,7 @@ This implementation plan breaks down the backend authentication feature into dis
     - Test error handling for database failures
     - _Requirements: 1.5, 2.1, 6.1_
 
-- [~] 6. Checkpoint - Ensure all core service tests pass
+- [-] 6. Checkpoint - Ensure all core service tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 7. Implement registration handler
