@@ -101,26 +101,47 @@ Team-3-Accenture-Bootcamp/
 
 A React TypeScript application for creating budgeting profiles. This application guides users through a multi-step form to gather information about their income, expenses, and financial goals.
 
-### Testing
+### Running the Application Locally
 
-Run all tests:
+#### Prerequisites
+- Node.js (v18.16.0 or higher)
+- npm (v9.x or higher)
+
+#### Installation & Setup
+
+1. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+2. **Run the development server:**
+   ```bash
+   npm run dev
+   ```
+
+3. **Open your browser:**
+   - Navigate to `http://localhost:5173/`
+   - The app will automatically reload when you make changes
+
+#### Available Commands
+
+**Development:**
 ```bash
-npm test
+npm run dev          # Start development server (Vite)
+npm run build        # Build for production
+npm run preview      # Preview production build locally
 ```
 
-Run tests in watch mode:
+**Testing:**
 ```bash
-npm test:watch
+npm test             # Run all tests
+npm run test:watch   # Run tests in watch mode
+npm run test:coverage # Run tests with coverage report
 ```
 
-Run tests with coverage:
+**Type Checking:**
 ```bash
-npm test:coverage
-```
-
-Type checking:
-```bash
-npm run type-check
+npm run type-check   # Check TypeScript types without building
 ```
 
 ### Testing Strategy
@@ -129,6 +150,17 @@ This project uses a dual testing approach:
 
 - **Unit Tests** (`.test.ts`, `.test.tsx`): Test specific examples, edge cases, and component behavior
 - **Property-Based Tests** (`.properties.test.ts`, `.properties.test.tsx`): Test universal properties using fast-check
+
+### Troubleshooting
+
+**Port already in use:**
+If port 5173 is already in use, Vite will automatically try the next available port (5174, 5175, etc.)
+
+**Module not found errors:**
+Run `npm install` to ensure all dependencies are installed
+
+**TypeScript errors:**
+Run `npm run type-check` to see detailed type errors
 
 ---
 
