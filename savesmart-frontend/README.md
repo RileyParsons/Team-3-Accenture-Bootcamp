@@ -1,147 +1,36 @@
-# SaveSmart Frontend
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-## Setup Instructions
+## Getting Started
 
-### 1. Initialize Next.js Project
-
-```bash
-cd savesmart-frontend
-npx create-next-app@latest . --typescript --tailwind --app
-```
-
-When prompted, choose:
-- ✅ TypeScript: Yes
-- ✅ ESLint: Yes
-- ✅ Tailwind CSS: Yes
-- ✅ `src/` directory: No
-- ✅ App Router: Yes
-- ✅ Import alias: Yes (@/*)
-
-### 2. Install Additional Dependencies (if needed)
-
-```bash
-npm install @heroicons/react
-npm install react-markdown
-```
-
-### 3. Set Up Environment Variables
-
-Create `.env.local`:
-```env
-NEXT_PUBLIC_API_URL=http://localhost:3001
-# Will be updated with real API Gateway URL from Backend team
-```
-
-### 4. Run Development Server
+First, run the development server:
 
 ```bash
 npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-### 5. Deploy to Vercel
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-```bash
-# Install Vercel CLI
-npm install -g vercel
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-# Deploy
-vercel
-```
+## Learn More
 
-Or connect your GitHub repo to Vercel dashboard for automatic deployments.
+To learn more about Next.js, take a look at the following resources:
 
-## Project Structure
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-```
-app/
-├── page.tsx              # Landing page
-├── signup/
-│   └── page.tsx          # Signup form
-├── onboarding/
-│   └── page.tsx          # Onboarding questionnaire
-├── chat/
-│   └── page.tsx          # Chat interface
-└── profile/
-    └── page.tsx          # User profile
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-components/               # Reusable components
-├── MessageBubble.tsx
-├── ChatInput.tsx
-├── SuggestedPrompts.tsx
-└── SavingsPlan.tsx
+## Deploy on Vercel
 
-lib/                      # Utilities
-├── api.ts               # API client
-└── types.ts             # TypeScript types
-```
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
-## Key Files to Create
-
-### 1. Landing Page (`app/page.tsx`)
-- Hero section with value proposition
-- "Get Started" CTA button
-- Example savings scenarios
-
-### 2. Onboarding (`app/onboarding/page.tsx`)
-- Multi-step form (3-4 steps)
-- Progress indicator
-- Form validation
-- POST to /users endpoint
-
-### 3. Chat Interface (`app/chat/page.tsx`)
-- Message list display
-- Input field with send button
-- Suggested prompts
-- Typing indicator
-- POST to /chat endpoint
-
-### 4. Profile Page (`app/profile/page.tsx`)
-- Display user data
-- Edit functionality
-- PUT to /users/{userId} endpoint
-
-## API Integration
-
-### API Client (`lib/api.ts`)
-
-```typescript
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
-export async function createUser(userData: UserProfile) {
-  const response = await fetch(`${API_URL}/users`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(userData),
-  });
-  return response.json();
-}
-
-export async function sendChatMessage(userId: string, message: string) {
-  const response = await fetch(`${API_URL}/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId, message }),
-  });
-  return response.json();
-}
-```
-
-## Demo Account
-
-Pre-configure for demo:
-- Email: sarah@student.com
-- Name: Sarah
-- Income: $1,200/month
-- Rent: $600/month
-- Grocery Budget: $80/week
-- Location: Parramatta, NSW 2150
-- Dietary: Vegetarian
-
-## Resources
-
-- **Spec:** `.kiro/specs/frontend-landing-onboarding/requirements.md`
-- **Spec:** `.kiro/specs/frontend-chat-interface/requirements.md`
-- **Setup Guide:** `SETUP_CHECKLIST.md` (Squad A section)
-- **Team Guide:** `TEAM_GUIDE.md`
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
