@@ -2,7 +2,7 @@
 
 **Product Name:** SaveSmart - AI-Powered Personal Savings Agent
 
-**Target Users:** Australian University Students & Young People
+**Target Users:** Australian Uni Students & Young People
 
 **Timeline:** February 11-12, 2026 (Days 2-3)
 
