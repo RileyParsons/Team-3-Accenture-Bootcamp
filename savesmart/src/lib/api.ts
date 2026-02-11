@@ -1,6 +1,7 @@
 // API utility functions for SaveSmart
 
-const API_BASE_URL = 'https://lmj3rtgsbe.execute-api.ap-southeast-2.amazonaws.com/prod';
+const API_BASE_URL =
+    'https://lmj3rtgsbe.execute-api.ap-southeast-2.amazonaws.com/prod';
 
 export interface UserData {
     userId: string;
@@ -14,40 +15,57 @@ export interface UserData {
     subscriptions?: string[];
 }
 
-export const saveUser = async (userData: UserData) => {
-    try {
-        const response = await fetch(`${API_BASE_URL}/test_users`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+// Optional: define response shape
+export interface SaveUserResponse {
+    message?: string;
+    user?: UserData;
+}
+
+export const saveUser = async (
+    userData: UserData
+): Promise<SaveUserResponse | null> => {
+    const response = await fetch(`${API_BASE_URL}/test_users`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
             body: JSON.stringify({
                 userId: userData.userId,
                 email: userData.email,
                 name: userData.name,
-                income: userData.income,
-                rent: userData.rent,
-                groceryBudget: userData.groceryBudget,
-                location: userData.location,
-                dietaryPreferences: userData.dietaryPreferences,
-                subscriptions: userData.subscriptions
+                income: userData.income || 0,
+                rent: userData.rent || 0,
+                groceryBudget: userData.groceryBudget || 0,
+                savings: 0,
+                hasCar: false,
+                location: userData.location || '',
+                dietaryPreferences: userData.dietaryPreferences || [],
+                subscriptions: userData.subscriptions || []
             })
-        });
+        }),
+    });
 
-        const data = await response.json();
+    let data: any = null;
 
-        if (!response.ok) {
-            throw new Error(data.error || 'Failed to save user');
-        }
-
-        return data;
-    } catch (error) {
-        console.error('Error saving user:', error);
-        throw error;
+    // Safely parse JSON if present
+    const contentType = response.headers.get('content-type');
+    if (contentType?.includes('application/json')) {
+        data = await response.json();
     }
+
+    if (!response.ok) {
+        throw new Error(
+            data?.error || data?.message || 'Failed to save user'
+        );
+    }
+
+    return data;
 };
 
 // Generate a unique user ID
-export const generateUserId = () => {
-    return `u_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+export const generateUserId = (): string => {
+    return `u_${Date.now()}_${Math.random()
+        .toString(36)
+        .substring(2, 11)}`;
 };

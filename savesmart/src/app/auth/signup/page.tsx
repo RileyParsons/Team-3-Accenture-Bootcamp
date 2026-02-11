@@ -85,6 +85,7 @@ export default function Signup() {
           name: userData.name,
           createdAt: new Date().toISOString()
         };
+
         localStorage.setItem('savesmart_user', JSON.stringify(localUserData));
         localStorage.setItem('savesmart_authenticated', 'true');
 
