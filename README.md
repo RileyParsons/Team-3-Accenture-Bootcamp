@@ -64,12 +64,17 @@ Formatted Response → User
 
 ```
 Team-3-Accenture-Bootcamp/
-├── docs/                           # Planning documents
+├── docs/                           # All documentation
 │   ├── MVP Plan.md                 # Product vision & features
 │   ├── Execution Plan.md           # Step-by-step build guide
 │   ├── Day 2 (Wednesday).md        # Foundation build tasks
 │   ├── Day 3 (Thursday).md         # Integration & polish tasks
-│   └── Day 4 (Friday).md           # Final polish & presentations
+│   ├── Day 4 (Friday).md           # Final polish & presentations
+│   ├── TEAM_GUIDE.md               # Quick reference for teams
+│   ├── SETUP_CHECKLIST.md          # Setup steps for each squad
+│   ├── ARCHITECTURE.md             # System architecture
+│   ├── PROJECT_STRUCTURE.md        # Detailed project structure
+│   └── SETUP_COMPLETE.md           # Setup summary
 │
 ├── .kiro/specs/                    # Feature specifications
 │   ├── frontend-landing-onboarding/
@@ -77,8 +82,10 @@ Team-3-Accenture-Bootcamp/
 │   ├── backend-aws-infrastructure/
 │   └── ai-agent-orchestration/
 │
-├── PROJECT_STRUCTURE.md            # Detailed project structure
-├── TEAM_GUIDE.md                   # Quick reference for teams
+├── savesmart-frontend/             # Frontend workspace
+├── savesmart-backend/              # Backend workspace
+├── n8n-workflows/                  # AI agent workflows
+├── integration-testing/            # Testing workspace
 └── README.md                       # This file
 ```
 
@@ -218,7 +225,9 @@ Team-3-Accenture-Bootcamp/
 - **Specs:** `.kiro/specs/[your-squad]/requirements.md`
 - **Daily Plans:** `docs/Day 2-4 (Day).md`
 - **Execution Guide:** `docs/Execution Plan.md`
-- **Team Guide:** `TEAM_GUIDE.md`
+- **Team Guide:** `docs/TEAM_GUIDE.md`
+- **Setup Guide:** `docs/SETUP_CHECKLIST.md`
+- **Architecture:** `docs/ARCHITECTURE.md`
 
 ### External Services
 - **AWS Console:** https://aws.amazon.com/console
