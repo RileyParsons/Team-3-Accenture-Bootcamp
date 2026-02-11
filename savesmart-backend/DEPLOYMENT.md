@@ -129,6 +129,8 @@ zip -r ../../getPlans.zip .
 cd ../..
 ```
 
+**Note**: The handler for each Lambda function should be set to `{functionName}.handler` (e.g., `saveUser.handler`, `getUser.handler`, etc.) instead of the default `index.handler`.
+
 ### Step 3: Upload to AWS Lambda
 
 Once your team member has created the Lambda functions in AWS:
