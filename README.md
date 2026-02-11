@@ -77,17 +77,58 @@ Team-3-Accenture-Bootcamp/
 │   └── SETUP_COMPLETE.md           # Setup summary
 │
 ├── .kiro/specs/                    # Feature specifications
+│   ├── budgeting-profile-page/     # Budgeting profile page spec
 │   ├── frontend-landing-onboarding/
 │   ├── frontend-chat-interface/
 │   ├── backend-aws-infrastructure/
 │   └── ai-agent-orchestration/
 │
+├── src/                            # Frontend source code
+│   ├── components/                 # React components
+│   ├── context/                    # React Context
+│   ├── types/                      # TypeScript types
+│   └── utils/                      # Utility functions
 ├── savesmart-frontend/             # Frontend workspace
 ├── savesmart-backend/              # Backend workspace
 ├── n8n-workflows/                  # AI agent workflows
 ├── integration-testing/            # Testing workspace
 └── README.md                       # This file
 ```
+
+---
+
+## 🧪 Budgeting Profile Page
+
+A React TypeScript application for creating budgeting profiles. This application guides users through a multi-step form to gather information about their income, expenses, and financial goals.
+
+### Testing
+
+Run all tests:
+```bash
+npm test
+```
+
+Run tests in watch mode:
+```bash
+npm test:watch
+```
+
+Run tests with coverage:
+```bash
+npm test:coverage
+```
+
+Type checking:
+```bash
+npm run type-check
+```
+
+### Testing Strategy
+
+This project uses a dual testing approach:
+
+- **Unit Tests** (`.test.ts`, `.test.tsx`): Test specific examples, edge cases, and component behavior
+- **Property-Based Tests** (`.properties.test.ts`, `.properties.test.tsx`): Test universal properties using fast-check
 
 ---
 
@@ -240,11 +281,12 @@ Team-3-Accenture-Bootcamp/
 
 ## 🎓 Technologies Used
 
-- **Frontend:** Next.js, TypeScript, Tailwind CSS, React
+- **Frontend:** Next.js, TypeScript, Tailwind CSS, React 18
 - **Backend:** AWS Lambda, API Gateway, DynamoDB
 - **AI/ML:** Claude Sonnet 4 / GPT-4o, n8n
 - **APIs:** Pulse MCP, FuelCheck NSW
 - **Deployment:** Vercel (frontend), AWS (backend)
+- **Testing:** Jest, React Testing Library, fast-check
 - **Tools:** Postman, CloudWatch, Git
 
 ---
