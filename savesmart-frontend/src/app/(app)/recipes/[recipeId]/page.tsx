@@ -11,8 +11,9 @@ import {
   ShoppingCart,
   Plus,
   Check,
+  X,
 } from 'lucide-react';
-import { getRecipe, Recipe } from '@/lib/api';
+import { getRecipe, Recipe, addMealToSlot, MealType } from '@/lib/api';
 
 export default function RecipeDetailPage() {
   const params = useParams();
@@ -24,6 +25,13 @@ export default function RecipeDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [isAddingToMealPlan, setIsAddingToMealPlan] = useState(false);
   const [addedToMealPlan, setAddedToMealPlan] = useState(false);
+  const [showMealPlanModal, setShowMealPlanModal] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<string>('Monday');
+  const [selectedMealType, setSelectedMealType] = useState<MealType>('breakfast');
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const mealTypes: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
 
   useEffect(() => {
     loadRecipe();
@@ -43,33 +51,43 @@ export default function RecipeDetailPage() {
     }
   };
 
-  const handleAddToMealPlan = async () => {
+  const handleAddToMealPlan = () => {
+    setShowMealPlanModal(true);
+    setError(null);
+  };
+
+  const handleConfirmAddToMealPlan = async () => {
     if (!recipe) return;
+
+    // Get userId from localStorage
+    const storedUser = localStorage.getItem('savesmart_user');
+    if (!storedUser) {
+      setError('Please log in to add meals to your plan');
+      setShowMealPlanModal(false);
+      return;
+    }
+
+    const userData = JSON.parse(storedUser);
+    const userId = userData.userId;
 
     setIsAddingToMealPlan(true);
     setError(null);
 
     try {
-      // Get current meal plan from localStorage
-      const storedMealPlan = localStorage.getItem('savesmart_meal_plan');
-      let mealPlan: string[] = storedMealPlan ? JSON.parse(storedMealPlan) : [];
+      await addMealToSlot(userId, selectedDay, selectedMealType, recipe.recipeId);
 
-      // Check if recipe is already in meal plan
-      if (mealPlan.includes(recipe.recipeId)) {
-        setError('This recipe is already in your meal plan');
-        setIsAddingToMealPlan(false);
-        return;
-      }
-
-      // Add recipe to meal plan
-      mealPlan.push(recipe.recipeId);
-      localStorage.setItem('savesmart_meal_plan', JSON.stringify(mealPlan));
-
+      setShowMealPlanModal(false);
       setAddedToMealPlan(true);
-      setTimeout(() => setAddedToMealPlan(false), 3000);
+      setSuccessMessage(`Added to ${selectedDay} ${selectedMealType}!`);
+
+      setTimeout(() => {
+        setAddedToMealPlan(false);
+        setSuccessMessage(null);
+      }, 3000);
     } catch (err) {
       console.error('Error adding to meal plan:', err);
-      setError('Failed to add to meal plan. Please try again.');
+      setError(err instanceof Error ? err.message : 'Failed to add to meal plan. Please try again.');
+      setShowMealPlanModal(false);
     } finally {
       setIsAddingToMealPlan(false);
     }
@@ -206,8 +224,102 @@ export default function RecipeDetailPage() {
               {error}
             </div>
           )}
+
+          {successMessage && (
+            <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-3 text-green-700 text-sm">
+              {successMessage}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Meal Plan Selection Modal */}
+      {showMealPlanModal && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50 p-4"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(8px)' }}
+        >
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-gray-900">Add to Meal Plan</h3>
+              <button
+                onClick={() => setShowMealPlanModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <p className="text-gray-600 mb-6">
+              Select when you'd like to have this meal:
+            </p>
+
+            {/* Day Selection */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Day
+              </label>
+              <select
+                value={selectedDay}
+                onChange={(e) => setSelectedDay(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              >
+                {days.map((day) => (
+                  <option key={day} value={day}>
+                    {day}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Meal Type Selection */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Meal Type
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {mealTypes.map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => setSelectedMealType(type)}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors capitalize ${
+                      selectedMealType === type
+                        ? 'bg-green-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowMealPlanModal(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmAddToMealPlan}
+                disabled={isAddingToMealPlan}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors disabled:bg-gray-300 flex items-center justify-center space-x-2"
+              >
+                {isAddingToMealPlan ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span>Adding...</span>
+                  </>
+                ) : (
+                  <span>Add to Plan</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Ingredients Section */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">

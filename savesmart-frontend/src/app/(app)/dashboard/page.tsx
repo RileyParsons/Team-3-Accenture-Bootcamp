@@ -654,9 +654,9 @@ export default function DashboardPage() {
                               label={{ value: 'Amount ($)', angle: -90, position: 'insideLeft', style: { fontSize: '14px', fill: '#374151', fontWeight: 600 } }}
                             />
                             <Tooltip
-                              formatter={(value: any, name: string) => {
+                              formatter={(value: any, name: string | undefined) => {
                                 if (value === null) return [null, ''];
-                                return [`$${value}`, name];
+                                return [`$${value}`, name || ''];
                               }}
                               labelStyle={{ color: '#374151', fontWeight: 600 }}
                               contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px' }}

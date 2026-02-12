@@ -1,377 +1,322 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { ChevronRight, ShoppingCart, DollarSign, Calendar, Check } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import PreferencesForm, { MealPlanPreferences } from '@/components/PreferencesForm';
+import MealPlanDisplay from '@/components/MealPlanDisplay';
+import RecipeBrowserModal from '@/components/RecipeBrowserModal';
+import { MealType } from '@/components/MealSlot';
+import {
+  generateMealPlan,
+  getMealPlan,
+  removeMealFromSlot,
+  addMealToSlot,
+  MealPlan,
+} from '@/lib/api';
 
-interface MealPlanItem {
+type PageState = 'empty' | 'preferences' | 'loading' | 'display';
+
+export default function MealPlanPage() {
+  const router = useRouter();
+  const [pageState, setPageState] = useState<PageState>('loading');
+  const [mealPlan, setMealPlan] = useState<MealPlan | null>(null);
+  const [userId, setUserId] = useState<string>('');
+  const [loadingMessage, setLoadingMessage] = useState<string>('Loading...');
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [showRecipeBrowser, setShowRecipeBrowser] = useState(false);
+  const [replacementContext, setReplacementContext] = useState<{
     day: string;
-    breakfast: string;
-    lunch: string;
-    dinner: string;
-    snack: string;
-}
+    mealType: MealType;
+  } | null>(null);
 
-interface Ingredient {
-    name: string;
-    quantity: string;
-    store: string;
-    price: number;
-}
-
-export default function MealPlan() {
-    const router = useRouter();
-    const [step, setStep] = useState<'preferences' | 'plan'>('preferences');
-    const [preferences, setPreferences] = useState({
-        allergies: [] as string[],
-        calorieGoal: "2000",
-        culturalPreference: "",
-        dietType: ""
-    });
-
-    // Dummy meal plan data
-    const weeklyMealPlan: MealPlanItem[] = [
-        {
-            day: "Monday",
-            breakfast: "Oatmeal with berries and honey",
-            lunch: "Grilled chicken salad with quinoa",
-            dinner: "Baked salmon with roasted vegetables",
-            snack: "Greek yogurt with almonds"
-        },
-        {
-            day: "Tuesday",
-            breakfast: "Scrambled eggs with whole grain toast",
-            lunch: "Turkey and avocado wrap",
-            dinner: "Stir-fried tofu with brown rice",
-            snack: "Apple slices with peanut butter"
-        },
-        {
-            day: "Wednesday",
-            breakfast: "Smoothie bowl with granola",
-            lunch: "Lentil soup with crusty bread",
-            dinner: "Grilled chicken breast with sweet potato",
-            snack: "Carrot sticks with hummus"
-        },
-        {
-            day: "Thursday",
-            breakfast: "Whole grain pancakes with maple syrup",
-            lunch: "Tuna salad sandwich",
-            dinner: "Beef stir-fry with vegetables",
-            snack: "Mixed nuts and dried fruit"
-        },
-        {
-            day: "Friday",
-            breakfast: "Avocado toast with poached egg",
-            lunch: "Chicken Caesar salad",
-            dinner: "Baked cod with quinoa and broccoli",
-            snack: "Protein shake"
-        },
-        {
-            day: "Saturday",
-            breakfast: "French toast with fresh berries",
-            lunch: "Vegetable pasta with marinara",
-            dinner: "Grilled steak with mashed potatoes",
-            snack: "Cheese and crackers"
-        },
-        {
-            day: "Sunday",
-            breakfast: "Breakfast burrito with salsa",
-            lunch: "Roast chicken with vegetables",
-            dinner: "Homemade pizza with salad",
-            snack: "Dark chocolate and strawberries"
-        }
-    ];
-
-    // Dummy shopping list grouped by store
-    const shoppingList: { store: string; items: Ingredient[] }[] = [
-        {
-            store: "Woolworths",
-            items: [
-                { name: "Rolled oats (1kg)", quantity: "1 pack", store: "Woolworths", price: 4.50 },
-                { name: "Mixed berries (500g)", quantity: "2 packs", store: "Woolworths", price: 8.00 },
-                { name: "Chicken breast (1kg)", quantity: "1 pack", store: "Woolworths", price: 12.00 },
-                { name: "Salmon fillets (400g)", quantity: "1 pack", store: "Woolworths", price: 15.00 },
-                { name: "Greek yogurt (1kg)", quantity: "1 tub", store: "Woolworths", price: 6.50 },
-                { name: "Eggs (dozen)", quantity: "2 cartons", store: "Woolworths", price: 10.00 },
-                { name: "Whole grain bread", quantity: "2 loaves", store: "Woolworths", price: 7.00 },
-                { name: "Avocados", quantity: "4 pieces", store: "Woolworths", price: 8.00 }
-            ]
-        },
-        {
-            store: "Coles",
-            items: [
-                { name: "Brown rice (2kg)", quantity: "1 bag", store: "Coles", price: 6.00 },
-                { name: "Quinoa (500g)", quantity: "1 pack", store: "Coles", price: 7.50 },
-                { name: "Tofu (300g)", quantity: "2 packs", store: "Coles", price: 6.00 },
-                { name: "Sweet potatoes (1kg)", quantity: "1 bag", store: "Coles", price: 4.00 },
-                { name: "Broccoli", quantity: "2 heads", store: "Coles", price: 5.00 },
-                { name: "Mixed vegetables (frozen)", quantity: "2 bags", store: "Coles", price: 8.00 }
-            ]
-        },
-        {
-            store: "Aldi",
-            items: [
-                { name: "Almonds (500g)", quantity: "1 pack", store: "Aldi", price: 8.50 },
-                { name: "Peanut butter", quantity: "1 jar", store: "Aldi", price: 4.50 },
-                { name: "Hummus (200g)", quantity: "2 tubs", store: "Aldi", price: 6.00 },
-                { name: "Pasta (500g)", quantity: "2 packs", store: "Aldi", price: 3.00 },
-                { name: "Marinara sauce", quantity: "2 jars", store: "Aldi", price: 5.00 },
-                { name: "Cheese (500g)", quantity: "1 block", store: "Aldi", price: 7.00 }
-            ]
-        }
-    ];
-
-    const totalCost = shoppingList.reduce((total, store) =>
-        total + store.items.reduce((storeTotal, item) => storeTotal + item.price, 0), 0
-    );
-
-    const handleAllergyToggle = (allergy: string) => {
-        setPreferences(prev => ({
-            ...prev,
-            allergies: prev.allergies.includes(allergy)
-                ? prev.allergies.filter(a => a !== allergy)
-                : [...prev.allergies, allergy]
-        }));
-    };
-
-    const handleGeneratePlan = () => {
-        setStep('plan');
-    };
-
-    const handleContinueToChat = () => {
-        // Save preferences to localStorage
+  // Load userId and check for existing meal plan on mount
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        // Get userId from localStorage
         const storedUser = localStorage.getItem('savesmart_user');
-        if (storedUser) {
-            const userData = JSON.parse(storedUser);
-            userData.mealPreferences = preferences;
-            localStorage.setItem('savesmart_user', JSON.stringify(userData));
+        if (!storedUser) {
+          setError('Please log in to view your meal plan');
+          setPageState('empty');
+          return;
         }
-        router.push('/dashboard');
+
+        const userData = JSON.parse(storedUser);
+        const userIdValue = userData.userId || 'u_1770877895466_4kjplxhml';
+        setUserId(userIdValue);
+
+        // Check if user has an existing meal plan
+        const existingPlan = await getMealPlan(userIdValue);
+        if (existingPlan) {
+          setMealPlan(existingPlan);
+          setPageState('display');
+        } else {
+          setPageState('empty');
+        }
+      } catch (err) {
+        console.error('Error loading user data:', err);
+        setPageState('empty');
+      }
     };
 
-    if (step === 'plan') {
-        return (
-            <div className="min-h-screen bg-gray-50">
-                <main className="max-w-6xl mx-auto px-6 py-8">
-                    {/* Summary Header */}
-                    <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-                        <h1 className="text-3xl font-bold text-gray-900 mb-2">Your Weekly Meal Plan</h1>
-                        <p className="text-gray-900 mb-4">
-                            Based on your preferences: {preferences.calorieGoal} calories/day
-                            {preferences.allergies.length > 0 && `, avoiding ${preferences.allergies.join(', ')}`}
-                        </p>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="bg-green-50 p-4 rounded-lg">
-                                <div className="flex items-center space-x-2 mb-2">
-                                    <DollarSign className="h-5 w-5 text-green-600" />
-                                    <span className="font-semibold text-gray-900">Total Cost</span>
-                                </div>
-                                <p className="text-2xl font-bold text-green-600">${totalCost.toFixed(2)}</p>
-                                <p className="text-sm text-gray-900">for the week</p>
-                            </div>
-                            <div className="bg-blue-50 p-4 rounded-lg">
-                                <div className="flex items-center space-x-2 mb-2">
-                                    <Calendar className="h-5 w-5 text-blue-600" />
-                                    <span className="font-semibold text-gray-900">Meals Planned</span>
-                                </div>
-                                <p className="text-2xl font-bold text-blue-600">28</p>
-                                <p className="text-sm text-gray-900">7 days × 4 meals</p>
-                            </div>
-                            <div className="bg-purple-50 p-4 rounded-lg">
-                                <div className="flex items-center space-x-2 mb-2">
-                                    <ShoppingCart className="h-5 w-5 text-purple-600" />
-                                    <span className="font-semibold text-gray-900">Stores</span>
-                                </div>
-                                <p className="text-2xl font-bold text-purple-600">{shoppingList.length}</p>
-                                <p className="text-sm text-gray-900">Woolworths, Coles, Aldi</p>
-                            </div>
-                        </div>
-                    </div>
+    loadUserData();
+  }, []);
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {/* Weekly Meal Plan */}
-                        <div className="bg-white rounded-xl shadow-lg p-6">
-                            <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center">
-                                <Calendar className="h-6 w-6 mr-2 text-green-600" />
-                                Weekly Menu
-                            </h2>
-                            <div className="space-y-4">
-                                {weeklyMealPlan.map((day, index) => (
-                                    <div key={index} className="border-l-4 border-green-500 pl-4 py-2">
-                                        <h3 className="font-bold text-lg text-gray-900 mb-2">{day.day}</h3>
-                                        <div className="space-y-1 text-sm">
-                                            <p className="text-gray-900"><span className="font-semibold text-gray-900">Breakfast:</span> {day.breakfast}</p>
-                                            <p className="text-gray-900"><span className="font-semibold text-gray-900">Lunch:</span> {day.lunch}</p>
-                                            <p className="text-gray-900"><span className="font-semibold text-gray-900">Dinner:</span> {day.dinner}</p>
-                                            <p className="text-gray-900"><span className="font-semibold text-gray-900">Snack:</span> {day.snack}</p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
+  // Handle meal plan generation
+  const handleGenerateMealPlan = async (preferences: MealPlanPreferences) => {
+    setPageState('loading');
+    setLoadingMessage('Generating your personalized meal plan...');
+    setError(null);
 
-                        {/* Shopping List */}
-                        <div className="bg-white rounded-xl shadow-lg p-6">
-                            <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center">
-                                <ShoppingCart className="h-6 w-6 mr-2 text-green-600" />
-                                Shopping List
-                            </h2>
-                            <div className="space-y-6">
-                                {shoppingList.map((store, storeIndex) => (
-                                    <div key={storeIndex} className="border-b pb-4 last:border-b-0">
-                                        <div className="flex items-center justify-between mb-3">
-                                            <h3 className="font-bold text-lg text-gray-900">{store.store}</h3>
-                                            <span className="text-sm font-semibold text-green-600">
-                                                ${store.items.reduce((sum, item) => sum + item.price, 0).toFixed(2)}
-                                            </span>
-                                        </div>
-                                        <div className="space-y-2">
-                                            {store.items.map((item, itemIndex) => (
-                                                <div key={itemIndex} className="flex items-center justify-between text-sm">
-                                                    <div className="flex items-center space-x-2">
-                                                        <Check className="h-4 w-4 text-gray-400" />
-                                                        <span className="text-gray-900">{item.name}</span>
-                                                    </div>
-                                                    <div className="flex items-center space-x-3">
-                                                        <span className="text-gray-900">{item.quantity}</span>
-                                                        <span className="font-semibold text-gray-900">${item.price.toFixed(2)}</span>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
+    // Set a timer to update the message after 5 seconds (Requirement 13.6)
+    const longRunningTimer = setTimeout(() => {
+      setLoadingMessage('AI is working on your personalized meal plan. This may take a moment...');
+    }, 5000);
 
-                                <div className="mt-6 pt-4 border-t-2 border-gray-200">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-xl font-bold text-gray-900">Weekly Total</span>
-                                    <span className="text-2xl font-bold text-green-600">${totalCost.toFixed(2)}</span>
-                                </div>
-                                <p className="text-sm text-gray-900 mt-1">
-                                    Average ${(totalCost / 7).toFixed(2)} per day
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Continue Button */}
-                    <div className="mt-8 flex justify-center">
-                        <button
-                            onClick={handleContinueToChat}
-                            className="px-8 py-4 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center space-x-2 text-lg"
-                        >
-                            <span>Continue to Dashboard</span>
-                            <ChevronRight className="h-5 w-5" />
-                        </button>
-                    </div>
-                </main>
-            </div>
-        );
+    try {
+      const generatedPlan = await generateMealPlan(userId, preferences);
+      clearTimeout(longRunningTimer);
+      setMealPlan(generatedPlan);
+      setPageState('display');
+      showSuccessMessage('Meal plan generated successfully!');
+    } catch (err) {
+      clearTimeout(longRunningTimer);
+      console.error('Error generating meal plan:', err);
+      setError(err instanceof Error ? err.message : 'Failed to generate meal plan');
+      setPageState('preferences');
     }
+  };
 
-    return (
-        <div className="min-h-screen bg-gray-50">
-            <main className="max-w-2xl mx-auto px-6 py-12">
-                <div className="bg-white rounded-xl shadow-lg p-8">
-                    <div className="text-center mb-8">
-                        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                            Let's Plan Your Meals
-                        </h1>
-                        <p className="text-gray-900">
-                            Tell us your dietary preferences and we'll create a personalized weekly meal plan
-                        </p>
-                    </div>
+  // Handle meal plan regeneration
+  const handleRegenerate = () => {
+    setPageState('preferences');
+  };
 
-                    <div className="space-y-6">
-                        {/* Allergies */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-900 mb-3">
-                                Do you have any food allergies or intolerances?
-                            </label>
-                            <div className="grid grid-cols-2 gap-3">
-                                {['Dairy', 'Gluten', 'Nuts', 'Shellfish', 'Eggs', 'Soy'].map((allergy) => (
-                                    <button
-                                        key={allergy}
-                                        onClick={() => handleAllergyToggle(allergy)}
-                                        className={`p-3 rounded-lg border-2 transition-colors text-gray-900 font-medium ${preferences.allergies.includes(allergy)
-                                                ? 'border-green-500 bg-green-50 text-green-700'
-                                                : 'border-gray-200 hover:border-green-300'
-                                            }`}
-                                    >
-                                        {allergy}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
+  // Handle adding a meal to a slot
+  const handleAddMeal = async (day: string, mealType: MealType) => {
+    // For now, navigate to recipes page with context
+    // In a full implementation, this would open a recipe browser modal
+    router.push(`/recipes?addToMealPlan=true&day=${day}&mealType=${mealType}`);
+  };
 
-                        {/* Calorie Goal */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-900 mb-2">
-                                Daily Calorie Goal
-                            </label>
-                            <select
-                                value={preferences.calorieGoal}
-                                onChange={(e) => setPreferences(prev => ({ ...prev, calorieGoal: e.target.value }))}
-                                className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none text-gray-900"
-                            >
-                                <option value="1500">1500 calories (Weight loss)</option>
-                                <option value="2000">2000 calories (Maintenance)</option>
-                                <option value="2500">2500 calories (Muscle gain)</option>
-                                <option value="3000">3000 calories (High activity)</option>
-                            </select>
-                        </div>
+  // Handle removing a meal from a slot
+  const handleRemoveMeal = async (day: string, mealType: MealType) => {
+    if (!userId || !mealPlan) return;
 
-                        {/* Cultural Preference */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-900 mb-2">
-                                Cultural or Regional Preference
-                            </label>
-                            <select
-                                value={preferences.culturalPreference}
-                                onChange={(e) => setPreferences(prev => ({ ...prev, culturalPreference: e.target.value }))}
-                                className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none text-gray-900"
-                            >
-                                <option value="">No preference</option>
-                                <option value="mediterranean">Mediterranean</option>
-                                <option value="asian">Asian</option>
-                                <option value="mexican">Mexican</option>
-                                <option value="indian">Indian</option>
-                                <option value="italian">Italian</option>
-                                <option value="australian">Australian</option>
-                            </select>
-                        </div>
-
-                        {/* Diet Type */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-900 mb-2">
-                                Diet Type
-                            </label>
-                            <select
-                                value={preferences.dietType}
-                                onChange={(e) => setPreferences(prev => ({ ...prev, dietType: e.target.value }))}
-                                className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none text-gray-900"
-                            >
-                                <option value="">No restriction</option>
-                                <option value="vegetarian">Vegetarian</option>
-                                <option value="vegan">Vegan</option>
-                                <option value="pescatarian">Pescatarian</option>
-                                <option value="keto">Keto</option>
-                                <option value="paleo">Paleo</option>
-                            </select>
-                        </div>
-
-                        {/* Generate Button */}
-                        <button
-                            onClick={handleGeneratePlan}
-                            className="w-full py-4 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center justify-center space-x-2"
-                        >
-                            <span>Generate My Meal Plan</span>
-                            <ChevronRight className="h-5 w-5" />
-                        </button>
-                    </div>
-                </div>
-            </main>
-        </div>
+    // Show confirmation dialog
+    const confirmed = window.confirm(
+      `Are you sure you want to remove this ${mealType} from ${day}?`
     );
+
+    if (!confirmed) return;
+
+    setLoadingMessage('Removing meal...');
+    setError(null);
+
+    try {
+      const updatedPlan = await removeMealFromSlot(userId, day, mealType);
+      setMealPlan(updatedPlan);
+      showSuccessMessage('Meal removed successfully!');
+    } catch (err) {
+      console.error('Error removing meal:', err);
+      setError(err instanceof Error ? err.message : 'Failed to remove meal');
+    }
+  };
+
+  // Handle replacing a meal in a slot
+  const handleReplaceMeal = async (day: string, mealType: MealType) => {
+    setReplacementContext({ day, mealType });
+    setShowRecipeBrowser(true);
+  };
+
+  // Handle recipe selection from browser modal
+  const handleSelectRecipe = async (recipeId: string) => {
+    if (!userId || !replacementContext) return;
+
+    setLoadingMessage('Replacing meal...');
+    setError(null);
+
+    try {
+      // First remove the old meal, then add the new one
+      await removeMealFromSlot(userId, replacementContext.day, replacementContext.mealType);
+      const updatedPlan = await addMealToSlot(
+        userId,
+        replacementContext.day,
+        replacementContext.mealType,
+        recipeId
+      );
+      setMealPlan(updatedPlan);
+      showSuccessMessage('Meal replaced successfully!');
+      setReplacementContext(null);
+    } catch (err) {
+      console.error('Error replacing meal:', err);
+      setError(err instanceof Error ? err.message : 'Failed to replace meal');
+    }
+  };
+
+  // Handle browsing recipes
+  const handleBrowseRecipes = () => {
+    router.push('/recipes');
+  };
+
+  // Handle creating a new meal plan
+  const handleCreateMealPlan = () => {
+    setPageState('preferences');
+  };
+
+  // Show success message temporarily
+  const showSuccessMessage = (message: string) => {
+    setSuccessMessage(message);
+    setTimeout(() => setSuccessMessage(null), 3000);
+  };
+
+  // Render empty state
+  if (pageState === 'empty') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
+        <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
+          <div className="mb-6">
+            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg
+                className="w-10 h-10 text-green-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">
+              No Meal Plan Yet
+            </h1>
+            <p className="text-gray-600">
+              Create a personalized weekly meal plan based on your dietary preferences and goals.
+            </p>
+          </div>
+
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-600">{error}</p>
+            </div>
+          )}
+
+          <button
+            onClick={handleCreateMealPlan}
+            className="w-full px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors"
+          >
+            Create Meal Plan
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Render preferences form
+  if (pageState === 'preferences') {
+    return (
+      <div className="min-h-screen bg-gray-50 py-12 px-6">
+        {error && (
+          <div className="max-w-2xl mx-auto mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-sm text-red-600">{error}</p>
+          </div>
+        )}
+
+        <PreferencesForm
+          initialPreferences={mealPlan?.preferences}
+          onSubmit={handleGenerateMealPlan}
+          onCancel={mealPlan ? () => setPageState('display') : undefined}
+        />
+      </div>
+    );
+  }
+
+  // Render loading state
+  if (pageState === 'loading') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
+        <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
+          <div className="mb-6">
+            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+              <svg
+                className="w-10 h-10 text-green-600 animate-spin"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">
+              {loadingMessage}
+            </h2>
+            <p className="text-gray-600 text-sm">
+              This may take a few moments...
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Render meal plan display
+  if (pageState === 'display' && mealPlan) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8 px-6">
+        {/* Success message toast */}
+        {successMessage && (
+          <div className="fixed top-4 right-4 z-50 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg animate-fade-in">
+            <p className="font-medium">{successMessage}</p>
+          </div>
+        )}
+
+        {/* Error message */}
+        {error && (
+          <div className="max-w-7xl mx-auto mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-sm text-red-600">{error}</p>
+          </div>
+        )}
+
+        <MealPlanDisplay
+          mealPlan={mealPlan}
+          onAddMeal={handleAddMeal}
+          onRemoveMeal={handleRemoveMeal}
+          onReplaceMeal={handleReplaceMeal}
+          onRegenerate={handleRegenerate}
+          onBrowseRecipes={handleBrowseRecipes}
+        />
+
+        {/* Recipe Browser Modal for Replacement */}
+        {showRecipeBrowser && replacementContext && (
+          <RecipeBrowserModal
+            isOpen={showRecipeBrowser}
+            mealType={replacementContext.mealType}
+            onClose={() => {
+              setShowRecipeBrowser(false);
+              setReplacementContext(null);
+            }}
+            onSelectRecipe={handleSelectRecipe}
+          />
+        )}
+      </div>
+    );
+  }
+
+  return null;
 }

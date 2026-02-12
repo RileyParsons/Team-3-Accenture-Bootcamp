@@ -172,8 +172,8 @@ This implementation plan breaks down the AI-powered meal planning feature into d
   - Verify DynamoDB integration works correctly
   - Ask the user if questions arise
 
-- [ ] 11. Create frontend API functions
-  - [-] 11.1 Add meal plan API functions to api.ts
+- [x] 11. Create frontend API functions
+  - [x] 11.1 Add meal plan API functions to api.ts
     - Add generateMealPlan(userId: string, preferences: MealPlanPreferences): Promise<MealPlan>
     - Add getMealPlan(userId: string): Promise<MealPlan | null>
     - Add updateMealPlan(userId: string, mealPlan: MealPlan): Promise<MealPlan>
@@ -188,8 +188,8 @@ This implementation plan breaks down the AI-powered meal planning feature into d
     - Test request/response formatting
     - _Requirements: 3.1, 5.3, 6.3, 10.4_
 
-- [ ] 12. Create PreferencesForm component
-  - [~] 12.1 Implement PreferencesForm component
+- [x] 12. Create PreferencesForm component
+  - [x] 12.1 Implement PreferencesForm component
     - Create multi-select checkboxes for allergies (Dairy, Gluten, Nuts, Shellfish, Eggs, Soy)
     - Create dropdown for calorie goal (1500, 2000, 2500, 3000)
     - Create dropdown for cultural preference (Mediterranean, Asian, Mexican, Indian, Italian, Australian)
@@ -215,8 +215,8 @@ This implementation plan breaks down the AI-powered meal planning feature into d
     - Test pre-fill with existing preferences
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7_
 
-- [ ] 13. Create MealSlot component
-  - [~] 13.1 Implement MealSlot component
+- [x] 13. Create MealSlot component
+  - [x] 13.1 Implement MealSlot component
     - Display empty state with "Add Meal" button when no meal
     - Display meal name, description when meal exists
     - Display "Remove" and "Replace" buttons for existing meals
@@ -232,8 +232,8 @@ This implementation plan breaks down the AI-powered meal planning feature into d
     - Test recipe link rendering
     - _Requirements: 4.5, 5.1, 6.1, 7.1_
 
-- [ ] 14. Create ShoppingList component
-  - [~] 14.1 Implement ShoppingList component
+- [x] 14. Create ShoppingList component
+  - [x] 14.1 Implement ShoppingList component
     - Display shopping list grouped by store
     - Show ingredient name, quantity, price for each item
     - Calculate and display subtotal per store
@@ -251,8 +251,8 @@ This implementation plan breaks down the AI-powered meal planning feature into d
     - Test total cost calculation
     - _Requirements: 4.4, 11.4, 11.5_
 
-- [ ] 15. Create MealPlanDisplay component
-  - [~] 15.1 Implement MealPlanDisplay component
+- [x] 15. Create MealPlanDisplay component
+  - [x] 15.1 Implement MealPlanDisplay component
     - Display 7-day grid with 4 meals per day
     - Use MealSlot component for each meal slot
     - Display total weekly cost prominently
@@ -275,8 +275,8 @@ This implementation plan breaks down the AI-powered meal planning feature into d
     - Test meal modification callbacks
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 8.1, 9.1_
 
-- [ ] 16. Update meal plan page with new components
-  - [~] 16.1 Refactor meal plan page to use new components
+- [x] 16. Update meal plan page with new components
+  - [x] 16.1 Refactor meal plan page to use new components
     - Implement state management for empty, preferences, loading, display states
     - Integrate PreferencesForm component
     - Integrate MealPlanDisplay component
@@ -304,13 +304,13 @@ This implementation plan breaks down the AI-powered meal planning feature into d
     - Test error handling
     - _Requirements: 1.1, 1.2, 3.1, 13.1, 13.5_
 
-- [~] 17. Add "View Meal Plan" button to recipes page
+- [x] 17. Add "View Meal Plan" button to recipes page
   - Update recipes page to include "View Meal Plan" button at the top
   - Implement navigation to meal plan page on click
   - Update `savesmart-frontend/src/app/(app)/recipes/page.tsx`
   - _Requirements: 1.3, 1.4_
 
-- [~] 18. Update recipe detail page with meal plan integration
+- [x] 18. Update recipe detail page with meal plan integration
   - Ensure "Add to Meal Plan" button is present
   - Implement modal/dialog for selecting day and meal type
   - Call addMealToSlot API function on selection
@@ -318,8 +318,8 @@ This implementation plan breaks down the AI-powered meal planning feature into d
   - Update `savesmart-frontend/src/app/(app)/recipes/[recipeId]/page.tsx`
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 13.2_
 
-- [ ] 19. Implement recipe browser modal for meal replacement
-  - [~] 19.1 Create RecipeBrowserModal component
+- [x] 19. Implement recipe browser modal for meal replacement
+  - [x] 19.1 Create RecipeBrowserModal component
     - Display recipe list filtered by meal type
     - Allow user to select a recipe
     - Handle recipe selection callback
@@ -332,8 +332,8 @@ This implementation plan breaks down the AI-powered meal planning feature into d
     - Test modal close behavior
     - _Requirements: 7.2, 7.3_
 
-- [ ] 20. Implement confirmation dialog for meal removal
-  - [~] 20.1 Create ConfirmationDialog component
+- [x] 20. Implement confirmation dialog for meal removal
+  - [x] 20.1 Create ConfirmationDialog component
     - Display confirmation message
     - Provide "Confirm" and "Cancel" buttons
     - Handle confirmation callback
@@ -346,13 +346,13 @@ This implementation plan breaks down the AI-powered meal planning feature into d
     - Test cancel button click
     - _Requirements: 6.2_
 
-- [~] 21. Checkpoint - Frontend components complete
+- [x] 21. Checkpoint - Frontend components complete
   - Ensure all frontend tests pass
   - Test components in isolation with Storybook (if available)
   - Verify component styling and responsiveness
   - Ask the user if questions arise
 
-- [ ] 22. Integration testing
+- [x] 22. Integration testing
   - [ ]* 22.1 Write integration tests for meal plan generation flow
     - Test complete flow from preferences submission to meal plan display
     - Test API integration with backend
@@ -372,7 +372,7 @@ This implementation plan breaks down the AI-powered meal planning feature into d
     - Test preferences persistence
     - _Requirements: 8.2, 8.3, 8.4, 8.5_
 
-- [ ] 23. End-to-end testing
+- [x] 23. End-to-end testing
   - [ ]* 23.1 Write E2E test for complete meal planning flow
     - Navigate to meal plan page
     - Fill preferences form
@@ -391,7 +391,7 @@ This implementation plan breaks down the AI-powered meal planning feature into d
     - Add recipe from browser and return to meal plan
     - _Requirements: 1.3, 1.4, 9.2, 9.4_
 
-- [~] 24. Final checkpoint - Complete feature testing
+- [x] 24. Final checkpoint - Complete feature testing
   - Run all unit tests and ensure they pass
   - Run all property tests and ensure they pass
   - Run all integration tests and ensure they pass

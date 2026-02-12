@@ -53,9 +53,17 @@ export default function RecipesPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Browse Recipes</h1>
-        <p className="text-gray-900">Find budget-friendly recipes with real-time pricing</p>
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Browse Recipes</h1>
+          <p className="text-gray-900">Find budget-friendly recipes with real-time pricing</p>
+        </div>
+        <button
+          onClick={() => router.push('/meal-plan')}
+          className="px-6 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors"
+        >
+          View Meal Plan
+        </button>
       </div>
 
       {/* Filters */}
