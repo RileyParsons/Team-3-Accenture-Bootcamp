@@ -47,7 +47,7 @@ This implementation plan transitions SaveSmart from AWS Lambda/API Gateway to a 
     - **Validates: Requirements 2.4, 14.1, 14.2_
 
 - [ ] 2. Implement DynamoDB data layer
-  - [ ] 2.1 Create data models for User and SavingsPlan
+  - [x] 2.1 Create data models for User and SavingsPlan
     - Create models/User.ts with User interface
     - Create models/SavingsPlan.ts with SavingsPlan interface
     - _Requirements: 2.1, 2.2, 2.5_
@@ -63,7 +63,7 @@ This implementation plan transitions SaveSmart from AWS Lambda/API Gateway to a 
     - **Property 16: Savings Statistics Calculation**
     - **Validates: Requirements 6.6, 7.7**
 
-  - [ ] 2.4 Create data models for Event, Recipe, and FuelStation
+  - [x] 2.4 Create data models for Event, Recipe, and FuelStation
     - Create models/Event.ts with Event interface
     - Create models/Recipe.ts with Recipe and Ingredient interfaces
     - Create models/FuelStation.ts with FuelStation and FuelPrice interfaces
@@ -76,7 +76,7 @@ This implementation plan transitions SaveSmart from AWS Lambda/API Gateway to a 
     - _Requirements: 2.3, 8.7, 9.8, 10.8_
 
 - [ ] 3. Implement caching layer
-  - [ ] 3.1 Create cache service with TTL support
+  - [x] 3.1 Create cache service with TTL support
     - Create utils/cache.ts with CacheService class
     - Implement set, get, invalidate methods with TTL
     - _Requirements: 8.7, 9.8, 10.8_
@@ -87,7 +87,7 @@ This implementation plan transitions SaveSmart from AWS Lambda/API Gateway to a 
     - **Validates: Requirements 8.7, 10.8**
 
 - [ ] 4. Implement webhook integration for AI agents
-  - [ ] 4.1 Create webhook service for n8n integration
+  - [x] 4.1 Create webhook service for n8n integration
     - Create services/webhooks.ts with WebhookService class
     - Implement callChatAgent method with 30-second timeout
     - Implement callSavingsPlanGenerator method
