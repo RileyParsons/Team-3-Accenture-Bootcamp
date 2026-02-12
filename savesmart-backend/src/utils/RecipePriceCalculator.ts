@@ -5,8 +5,8 @@
  * and determines which store offers the best value
  */
 
-import { Recipe, Ingredient, StorePricing } from '../models/Recipe';
-import { getAustralianPrice } from '../data/australian-grocery-prices';
+import { Recipe, Ingredient, StorePricing } from '../models/Recipe.js';
+import { getAustralianPrice } from '../data/australian-grocery-prices.js';
 
 export class RecipePriceCalculator {
   /**

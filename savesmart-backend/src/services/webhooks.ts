@@ -90,14 +90,52 @@ export class WebhookService {
       let systemPrompt = 'You are a helpful financial assistant for the SaveSmart application. ';
       systemPrompt += 'Provide concise, practical advice about saving money and managing finances.';
 
-      // Add context if provided
-      if (context?.pageType) {
+      // Fetch relevant data based on context
+      let contextData = '';
+
+      if (context?.pageType === 'recipe' && context.dataId) {
+        // Fetch the specific recipe
+        try {
+          const recipe = await this.dynamoDBService.getRecipe(context.dataId);
+          if (recipe) {
+            contextData = `\n\nCurrent Recipe Details:
+- Name: ${recipe.name}
+- Description: ${recipe.description}
+- Total Cost: $${recipe.totalCost.toFixed(2)}
+- Servings: ${recipe.servings}
+- Prep Time: ${recipe.prepTime} minutes
+- Dietary Tags: ${recipe.dietaryTags.join(', ') || 'None'}
+- Ingredients: ${recipe.ingredients.map((ing: any) => `${ing.name} (${ing.quantity} ${ing.unit})`).join(', ')}`;
+
+            systemPrompt += `\n\nContext: User is viewing the recipe "${recipe.name}". `;
+            systemPrompt += 'Answer questions about this specific recipe using the provided details. ';
+            systemPrompt += 'You can discuss ingredients, cost, cooking instructions, nutritional aspects, ';
+            systemPrompt += 'or suggest money-saving alternatives and substitutions.';
+          }
+        } catch (error) {
+          console.error('Failed to fetch recipe:', error);
+        }
+      } else if (context?.pageType === 'recipe' && !context.dataId) {
+        // On recipes list page - fetch all recipes
+        try {
+          const recipes = await this.dynamoDBService.getRecipes();
+          const recipeList = recipes.slice(0, 20).map((r: any) =>
+            `${r.name} ($${r.totalCost.toFixed(2)}, ${r.servings} servings, ${r.dietaryTags.join(', ')})`
+          ).join('\n- ');
+
+          contextData = `\n\nAvailable Recipes (showing first 20):
+- ${recipeList}`;
+
+          systemPrompt += `\n\nContext: User is browsing the recipes page. `;
+          systemPrompt += 'Help them find recipes based on their criteria (price, dietary needs, etc.). ';
+          systemPrompt += 'Use the provided recipe list to give specific recommendations.';
+        } catch (error) {
+          console.error('Failed to fetch recipes:', error);
+        }
+      } else if (context?.pageType) {
         systemPrompt += `\n\nContext: User is currently on the ${context.pageType} page`;
         if (context.dataName) {
           systemPrompt += ` viewing "${context.dataName}"`;
-        }
-        if (context.dataId) {
-          systemPrompt += ` (ID: ${context.dataId})`;
         }
         systemPrompt += '.';
       }
@@ -112,11 +150,11 @@ export class WebhookService {
         }, this.CHAT_TIMEOUT);
       });
 
-      // Create OpenAI API call promise
+      // Create OpenAI API call promise with context data
       const apiPromise = this.openai.chat.completions.create({
         model: 'gpt-3.5-turbo',
         messages: [
-          { role: 'system', content: systemPrompt },
+          { role: 'system', content: systemPrompt + contextData },
           { role: 'user', content: message },
         ],
         max_tokens: 500,

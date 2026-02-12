@@ -19,13 +19,79 @@ export default function ChatOverlay({ onClose }: ChatOverlayProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [recipeData, setRecipeData] = useState<{ name: string; description: string } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
+
+  // Load recipe data if on recipe page
+  useEffect(() => {
+    const loadRecipeData = async () => {
+      if (pathname.startsWith('/recipes/')) {
+        const recipeId = pathname.split('/')[2];
+        try {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/recipes/${recipeId}`);
+          if (response.ok) {
+            const data = await response.json();
+            setRecipeData({ name: data.name, description: data.description });
+          }
+        } catch (error) {
+          console.error('Failed to load recipe data:', error);
+        }
+      } else {
+        setRecipeData(null);
+      }
+    };
+    loadRecipeData();
+  }, [pathname]);
+
+  // Load messages from localStorage on mount
+  useEffect(() => {
+    try {
+      const savedMessages = localStorage.getItem('savesmart_chat_messages');
+      if (savedMessages) {
+        setMessages(JSON.parse(savedMessages));
+      }
+    } catch (error) {
+      console.error('Failed to load chat messages:', error);
+    }
+  }, []);
+
+  // Save messages to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem('savesmart_chat_messages', JSON.stringify(messages));
+    } catch (error) {
+      console.error('Failed to save chat messages:', error);
+    }
+  }, [messages]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Get context-aware message for empty state
+  const getContextMessage = (): string => {
+    if (pathname.startsWith('/recipes/')) {
+      return 'Ask me about this recipe, ingredients, or cooking tips!';
+    }
+    if (pathname.startsWith('/events')) {
+      return 'Ask me about events, activities, or entertainment options!';
+    }
+    if (pathname.startsWith('/fuel-prices')) {
+      return 'Ask me about fuel prices, stations, or saving on gas!';
+    }
+    if (pathname.startsWith('/profile')) {
+      return 'Ask me about your budget, expenses, or financial goals!';
+    }
+    if (pathname.startsWith('/dashboard')) {
+      return 'Ask me about your finances, savings, or spending habits!';
+    }
+    if (pathname.startsWith('/meal-plan')) {
+      return 'Ask me about your meal plan, recipes, or nutrition!';
+    }
+    return 'Ask me anything about saving money, budgeting, or this page!';
+  };
 
   // Extract context from current page
   const getPageContext = (): ChatContextData | undefined => {
@@ -34,6 +100,7 @@ export default function ChatOverlay({ onClose }: ChatOverlayProps) {
       return {
         pageType: 'recipe',
         dataId: recipeId,
+        dataName: recipeData?.name || 'Unknown Recipe',
       };
     }
     if (pathname.startsWith('/events')) {
@@ -111,16 +178,64 @@ export default function ChatOverlay({ onClose }: ChatOverlayProps) {
     <div className="fixed bottom-24 right-6 z-40 w-96 h-[500px] bg-white rounded-lg shadow-2xl flex flex-col">
       {/* Header */}
       <div className="bg-green-600 text-white px-4 py-3 rounded-t-lg">
-        <h3 className="font-semibold">SaveSmart Assistant</h3>
-        <p className="text-xs text-green-100">Ask me anything about saving money!</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold">SaveSmart Assistant</h3>
+            <p className="text-xs text-green-100">💡 I can see what's on this page!</p>
+          </div>
+          {messages.length > 0 && (
+            <button
+              onClick={() => {
+                setMessages([]);
+                localStorage.removeItem('savesmart_chat_messages');
+              }}
+              className="text-xs text-green-100 hover:text-white underline"
+            >
+              Clear
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && (
           <div className="text-center text-gray-500 mt-8">
-            <p className="text-sm">Start a conversation!</p>
-            <p className="text-xs mt-2">I can help you with budgeting, recipes, events, and more.</p>
+            <p className="text-sm font-medium text-gray-700 mb-2">👋 Hi! I'm context-aware!</p>
+            <p className="text-xs mt-2 text-gray-600">{getContextMessage()}</p>
+            <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg text-left">
+              <p className="text-xs text-gray-700 font-medium mb-1">Try asking:</p>
+              <ul className="text-xs text-gray-600 space-y-1">
+                {pathname.startsWith('/recipes/') && (
+                  <>
+                    <li>• "What ingredients do I need?"</li>
+                    <li>• "How much will this cost?"</li>
+                    <li>• "Can I substitute any ingredients?"</li>
+                  </>
+                )}
+                {pathname.startsWith('/meal-plan') && (
+                  <>
+                    <li>• "What's my total weekly cost?"</li>
+                    <li>• "Suggest a cheaper alternative"</li>
+                    <li>• "What's the nutrition breakdown?"</li>
+                  </>
+                )}
+                {pathname.startsWith('/events') && (
+                  <>
+                    <li>• "What free events are nearby?"</li>
+                    <li>• "Show me family-friendly activities"</li>
+                    <li>• "What's happening this weekend?"</li>
+                  </>
+                )}
+                {!pathname.startsWith('/recipes/') && !pathname.startsWith('/meal-plan') && !pathname.startsWith('/events') && (
+                  <>
+                    <li>• "Help me save money"</li>
+                    <li>• "What's on this page?"</li>
+                    <li>• "Give me budgeting tips"</li>
+                  </>
+                )}
+              </ul>
+            </div>
           </div>
         )}
         {messages.map((message, index) => (
@@ -135,8 +250,10 @@ export default function ChatOverlay({ onClose }: ChatOverlayProps) {
                   : 'bg-gray-100 text-gray-900'
               }`}
             >
-              <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-              <p className="text-xs mt-1 opacity-70">
+              <p className={`text-sm whitespace-pre-wrap ${message.role === 'user' ? 'text-white' : 'text-gray-900'}`}>
+                {message.content}
+              </p>
+              <p className={`text-xs mt-1 ${message.role === 'user' ? 'text-green-100' : 'text-gray-600'}`}>
                 {new Date(message.timestamp).toLocaleTimeString()}
               </p>
             </div>
@@ -160,7 +277,7 @@ export default function ChatOverlay({ onClose }: ChatOverlayProps) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Type your message..."
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm text-gray-900 placeholder-gray-400"
             disabled={isLoading}
           />
           <button

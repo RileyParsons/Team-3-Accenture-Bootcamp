@@ -7,9 +7,9 @@
  * Requirements: 9.5, 9.6, 14.5
  */
 
-import { FuelStation } from '../models/FuelStation';
-import { getConfig } from '../config/env';
-import { generateMockFuelStations } from '../utils/mockData';
+import { FuelStation } from '../models/FuelStation.js';
+import { getConfig } from '../config/env.js';
+import { generateMockFuelStations } from '../utils/mockData.js';
 
 export class FuelCheckService {
   private apiKey: string | undefined;

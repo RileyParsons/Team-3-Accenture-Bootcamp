@@ -217,6 +217,164 @@ export class DynamoDBService {
   }
 
   /**
+   * Create a meal plan
+   * @param plan - Meal plan object to create
+   * @returns Created meal plan object
+   */
+  async createMealPlan(userId: string, mealPlan: any): Promise<any> {
+    try {
+      const planId = `plan_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+      const now = new Date().toISOString();
+
+      const planRecord = {
+        planId,
+        userId,
+        planType: 'meal',
+        ...mealPlan,
+        createdAt: mealPlan.createdAt || now,
+        updatedAt: now,
+      };
+
+      const command = new PutCommand({
+        TableName: this.config.dynamodb.plansTable,
+        Item: planRecord,
+      });
+
+      await this.docClient.send(command);
+
+      // Update user record with planId reference
+      await this.updateUser(userId, {
+        mealPlanId: planId,
+      } as any);
+
+      return planRecord;
+    } catch (error) {
+      console.error('Error creating meal plan:', error);
+      throw new Error(`Failed to create meal plan: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Get a meal plan by userId and planId
+   * @param userId - The user's unique identifier
+   * @param planId - The plan's unique identifier
+   * @returns Meal plan object or null if not found
+   */
+  async getMealPlan(userId: string, planId: string): Promise<any | null> {
+    try {
+      const command = new GetCommand({
+        TableName: this.config.dynamodb.plansTable,
+        Key: {
+          userId,
+          planId
+        },
+      });
+
+      const response = await this.docClient.send(command);
+
+      if (!response.Item) {
+        return null;
+      }
+
+      return response.Item;
+    } catch (error) {
+      console.error('Error getting meal plan:', error);
+      throw new Error(`Failed to get meal plan: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Get user's meal plan (convenience method)
+   * @param userId - The user's unique identifier
+   * @returns Meal plan object or null if not found
+   */
+  async getUserMealPlan(userId: string): Promise<any | null> {
+    try {
+      // Get user to find mealPlanId
+      const user = await this.getUser(userId);
+      if (!user || !(user as any).mealPlanId) {
+        return null;
+      }
+
+      // Get the meal plan using both userId and planId
+      return await this.getMealPlan(userId, (user as any).mealPlanId);
+    } catch (error) {
+      console.error('Error getting user meal plan:', error);
+      throw new Error(`Failed to get user meal plan: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Delete a meal plan
+   * @param planId - The plan's unique identifier
+   */
+  async deleteMealPlan(userId: string, planId: string): Promise<void> {
+      try {
+        const { DeleteCommand } = await import('@aws-sdk/lib-dynamodb');
+
+        const command = new DeleteCommand({
+          TableName: this.config.dynamodb.plansTable,
+          Key: {
+            userId,
+            planId
+          },
+        });
+
+        await this.docClient.send(command);
+      } catch (error) {
+        console.error('Error deleting meal plan:', error);
+        throw new Error(`Failed to delete meal plan: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
+
+  /**
+   * Update a meal plan
+   * @param userId - The user's unique identifier
+   * @param planId - The plan's unique identifier
+   * @param updates - Partial meal plan object with fields to update
+   * @returns Updated meal plan object
+   */
+  async updateMealPlan(userId: string, planId: string, updates: any): Promise<any> {
+    try {
+      // Add updatedAt timestamp
+      updates.updatedAt = new Date().toISOString();
+
+      // Build update expression dynamically
+      const updateExpressions: string[] = [];
+      const expressionAttributeNames: Record<string, string> = {};
+      const expressionAttributeValues: Record<string, any> = {};
+
+      // Build update expressions for each field
+      Object.entries(updates).forEach(([key, value]) => {
+        if (key !== 'userId' && key !== 'planId') { // Don't update the keys
+          updateExpressions.push(`#${key} = :${key}`);
+          expressionAttributeNames[`#${key}`] = key;
+          expressionAttributeValues[`:${key}`] = value;
+        }
+      });
+
+      const command = new UpdateCommand({
+        TableName: this.config.dynamodb.plansTable,
+        Key: {
+          userId,
+          planId
+        },
+        UpdateExpression: `SET ${updateExpressions.join(', ')}`,
+        ExpressionAttributeNames: expressionAttributeNames,
+        ExpressionAttributeValues: expressionAttributeValues,
+        ReturnValues: 'ALL_NEW',
+      });
+
+      const response = await this.docClient.send(command);
+
+      return response.Attributes;
+    } catch (error) {
+      console.error('Error updating meal plan:', error);
+      throw new Error(`Failed to update meal plan: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
    * Get events with optional filtering
    * @param filters - Optional filters for suburb and postcode
    * @returns Array of events

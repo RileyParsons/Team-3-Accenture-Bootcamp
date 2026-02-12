@@ -16,6 +16,12 @@ export function generateMockEvents(suburb?: string, postcode?: string): Event[] 
   const now = new Date();
   const locations: EventLocation[] = [
     {
+      venue: 'Accenture Melbourne Office',
+      suburb: suburb || 'Melbourne',
+      postcode: postcode || '3000',
+      coordinates: { lat: -37.8136, lng: 144.9631 }
+    },
+    {
       venue: 'RMIT University',
       suburb: suburb || 'Melbourne',
       postcode: postcode || '3000',
@@ -48,6 +54,11 @@ export function generateMockEvents(suburb?: string, postcode?: string): Event[] 
   ];
 
   const eventTemplates = [
+    {
+      name: 'Accenture Tech Bootcamp Drinks 🍺',
+      description: 'Join us for drinks and networking after the Tech Bootcamp presentations! Celebrate the amazing work of our bootcamp participants, connect with Accenture professionals, and enjoy refreshments at our Melbourne office.',
+      discount: { description: 'Free entry', percentage: 100 }
+    },
     {
       name: 'Melbourne Tech Meetup',
       description: 'Monthly networking event for tech professionals and developers. Connect with local startups, share ideas, and learn about the latest in software development and innovation.',
@@ -102,10 +113,17 @@ export function generateMockEvents(suburb?: string, postcode?: string): Event[] 
 
   return eventTemplates.map((template, index) => {
     const location = locations[index % locations.length];
-    const daysAhead = index + 1;
-    const eventDate = new Date(now);
-    eventDate.setDate(eventDate.getDate() + daysAhead);
-    eventDate.setHours(18 + (index % 4), 0, 0, 0); // Events between 6pm-10pm
+
+    // Special handling for Accenture event (index 0) - Friday Feb 13th at 5pm
+    let eventDate: Date;
+    if (index === 0) {
+      eventDate = new Date('2026-02-13T17:00:00+11:00'); // 5pm AEDT (Melbourne time)
+    } else {
+      const daysAhead = index + 1;
+      eventDate = new Date(now);
+      eventDate.setDate(eventDate.getDate() + daysAhead);
+      eventDate.setHours(18 + (index % 4), 0, 0, 0); // Events between 6pm-10pm
+    }
 
     return {
       eventId: `mock-event-${index + 1}`,

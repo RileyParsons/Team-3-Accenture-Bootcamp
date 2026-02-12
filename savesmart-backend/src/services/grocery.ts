@@ -9,8 +9,8 @@
  * Requirements: 10.6, 10.7, 14.5
  */
 
-import { getConfig } from '../config/env';
-import { getAustralianPrice, LAST_UPDATED } from '../data/australian-grocery-prices';
+import { getConfig } from '../config/env.js';
+import { getAustralianPrice, LAST_UPDATED } from '../data/australian-grocery-prices.js';
 
 export interface Product {
   productId: string;
@@ -141,7 +141,8 @@ export class GroceryService {
    */
   private getCuratedPrice(productName: string): number {
     const priceData = getAustralianPrice(productName);
-    return priceData.price;
+    // Return average of Coles and Woolworths prices
+    return (priceData.colesPrice + priceData.woolworthsPrice) / 2;
   }
 
   /**

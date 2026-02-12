@@ -137,22 +137,16 @@ router.post('/meal-plan/generate', async (req: Request, res: Response) => {
 
     console.log('Shopping list generated, saving to DynamoDB');
 
-    // Save complete meal plan to DynamoDB user profile
-    await getDBService().updateUser(userId, {
-      mealPlan: {
-        preferences: prefs,
-        plan: mealPlan,
-        createdAt: now,
-        updatedAt: now,
-      },
-    } as any);
+    // Save complete meal plan to DynamoDB plans table
+    const savedPlan = await getDBService().createMealPlan(userId, mealPlan);
 
-    console.log('Meal plan saved successfully');
+    console.log('Meal plan saved successfully to plans table');
 
     // Return meal plan with 201 status
     return res.status(201).json({
       message: 'Meal plan generated successfully',
-      mealPlan,
+      planId: savedPlan.planId,
+      mealPlan: savedPlan,
     });
   } catch (error) {
     console.error('Generate meal plan error:', error);
@@ -288,10 +282,8 @@ router.get('/meal-plan/:userId', async (req: Request, res: Response) => {
       });
     }
 
-    // Return mealPlan field from user profile (the plan property within mealPlan)
-    // Return null if no meal plan exists
-    const userMealPlan = (user as any).mealPlan;
-    const mealPlan = userMealPlan?.plan || null;
+    // Get meal plan from plans table using mealPlanId reference
+    const mealPlan = await getDBService().getUserMealPlan(userId);
 
     return res.status(200).json({
       mealPlan,
@@ -347,12 +339,21 @@ router.put('/meal-plan/:userId', async (req: Request, res: Response) => {
       });
     }
 
-    // Verify user exists
+    // Verify user exists and has a meal plan
     const user = await getDBService().getUser(userId);
     if (!user) {
       return res.status(404).json({
         error: 'NotFoundError',
         message: 'User not found',
+        retryable: false,
+      });
+    }
+
+    const mealPlanId = (user as any).mealPlanId;
+    if (!mealPlanId) {
+      return res.status(404).json({
+        error: 'NotFoundError',
+        message: 'No meal plan found for user',
         retryable: false,
       });
     }
@@ -392,25 +393,17 @@ router.put('/meal-plan/:userId', async (req: Request, res: Response) => {
     // Recalculate total weekly cost
     const totalWeeklyCost = shoppingList.totalCost;
 
-    // Update meal plan with new shopping list and cost
-    const updatedMealPlan: MealPlan = {
-      ...mealPlan,
+    console.log('Shopping list regenerated, updating plans table');
+
+    // Update meal plan in plans table
+    const updatedMealPlan = await getDBService().updateMealPlan(userId, mealPlanId, {
+      days: mealPlan.days,
       shoppingList,
       totalWeeklyCost,
-      updatedAt: new Date().toISOString(),
-    };
-
-    console.log('Shopping list regenerated, updating DynamoDB');
-
-    // Update user profile in DynamoDB
-    const userMealPlan = (user as any).mealPlan || {};
-    await getDBService().updateUser(userId, {
-      mealPlan: {
-        ...userMealPlan,
-        plan: updatedMealPlan,
-        updatedAt: updatedMealPlan.updatedAt,
-      },
-    } as any);
+      preferences: mealPlan.preferences,
+      nutritionSummary: mealPlan.nutritionSummary,
+      notes: mealPlan.notes,
+    });
 
     console.log('Meal plan updated successfully');
 
@@ -420,6 +413,19 @@ router.put('/meal-plan/:userId', async (req: Request, res: Response) => {
       mealPlan: updatedMealPlan,
     });
   } catch (error) {
+    console.error('Update meal plan error:', error);
+
+    // Handle errors with appropriate status codes
+    return res.status(500).json({
+      error: 'InternalError',
+      message: 'Failed to update meal plan',
+      details: error instanceof Error ? error.message : 'Unknown error',
+      retryable: true,
+    });
+  }
+});
+
+/**
     console.error('Update meal plan error:', error);
 
     // Handle errors with appropriate status codes
@@ -499,7 +505,7 @@ router.post('/meal-plan/:userId/meal', async (req: Request, res: Response) => {
 
     console.log(`Adding meal to plan for user ${userId}: ${day} ${mealType}`);
 
-    // Verify user exists
+    // Verify user exists and has a meal plan
     const user = await getDBService().getUser(userId);
     if (!user) {
       return res.status(404).json({
@@ -509,9 +515,8 @@ router.post('/meal-plan/:userId/meal', async (req: Request, res: Response) => {
       });
     }
 
-    // Fetch current meal plan from DynamoDB
-    const userMealPlan = (user as any).mealPlan;
-    if (!userMealPlan || !userMealPlan.plan) {
+    const mealPlanId = (user as any).mealPlanId;
+    if (!mealPlanId) {
       return res.status(404).json({
         error: 'NotFoundError',
         message: 'No meal plan found for user',
@@ -519,7 +524,15 @@ router.post('/meal-plan/:userId/meal', async (req: Request, res: Response) => {
       });
     }
 
-    const currentPlan: MealPlan = userMealPlan.plan;
+    // Fetch current meal plan from plans table
+    const currentPlan = await getDBService().getMealPlan(userId, mealPlanId);
+    if (!currentPlan) {
+      return res.status(404).json({
+        error: 'NotFoundError',
+        message: 'No meal plan found for user',
+        retryable: false,
+      });
+    }
 
     // Fetch recipe details for the new recipe
     const recipe = await getDBService().getRecipe(recipeId);
@@ -534,7 +547,7 @@ router.post('/meal-plan/:userId/meal', async (req: Request, res: Response) => {
     console.log(`Recipe found: ${recipe.name}, adding to meal plan`);
 
     // Find the day in the meal plan
-    const dayIndex = currentPlan.days.findIndex(d => d.day === day);
+    const dayIndex = (currentPlan.days as any[]).findIndex((d: any) => d.day === day);
     if (dayIndex === -1) {
       return res.status(400).json({
         error: 'ValidationError',
@@ -555,7 +568,7 @@ router.post('/meal-plan/:userId/meal', async (req: Request, res: Response) => {
 
     // Add meal to specified slot in meal plan
     // Find if there's already a meal in this slot
-    const mealIndex = currentPlan.days[dayIndex].meals.findIndex(m => m.mealType === mealType);
+    const mealIndex = (currentPlan.days[dayIndex].meals as any[]).findIndex((m: any) => m.mealType === mealType);
 
     if (mealIndex !== -1) {
       // Replace existing meal
@@ -597,24 +610,14 @@ router.post('/meal-plan/:userId/meal', async (req: Request, res: Response) => {
     // Recalculate total weekly cost
     const totalWeeklyCost = shoppingList.totalCost;
 
-    // Update meal plan with new shopping list and cost
-    const updatedMealPlan: MealPlan = {
-      ...currentPlan,
+    console.log('Shopping list regenerated, updating plans table');
+
+    // Update meal plan in plans table
+    const updatedMealPlan = await getDBService().updateMealPlan(userId, mealPlanId, {
+      days: currentPlan.days,
       shoppingList,
       totalWeeklyCost,
-      updatedAt: new Date().toISOString(),
-    };
-
-    console.log('Shopping list regenerated, saving to DynamoDB');
-
-    // Save updated plan to DynamoDB
-    await getDBService().updateUser(userId, {
-      mealPlan: {
-        ...userMealPlan,
-        plan: updatedMealPlan,
-        updatedAt: updatedMealPlan.updatedAt,
-      },
-    } as any);
+    });
 
     console.log('Meal added successfully');
 
@@ -695,7 +698,7 @@ router.delete('/meal-plan/:userId/meal', async (req: Request, res: Response) => 
 
     console.log(`Removing meal from plan for user ${userId}: ${day} ${mealType}`);
 
-    // Verify user exists
+    // Verify user exists and has a meal plan
     const user = await getDBService().getUser(userId);
     if (!user) {
       return res.status(404).json({
@@ -705,9 +708,8 @@ router.delete('/meal-plan/:userId/meal', async (req: Request, res: Response) => 
       });
     }
 
-    // Fetch current meal plan from DynamoDB
-    const userMealPlan = (user as any).mealPlan;
-    if (!userMealPlan || !userMealPlan.plan) {
+    const mealPlanId = (user as any).mealPlanId;
+    if (!mealPlanId) {
       return res.status(404).json({
         error: 'NotFoundError',
         message: 'No meal plan found for user',
@@ -715,10 +717,18 @@ router.delete('/meal-plan/:userId/meal', async (req: Request, res: Response) => 
       });
     }
 
-    const currentPlan: MealPlan = userMealPlan.plan;
+    // Fetch current meal plan from plans table
+    const currentPlan = await getDBService().getMealPlan(userId, mealPlanId);
+    if (!currentPlan) {
+      return res.status(404).json({
+        error: 'NotFoundError',
+        message: 'No meal plan found for user',
+        retryable: false,
+      });
+    }
 
     // Find the day in the meal plan
-    const dayIndex = currentPlan.days.findIndex(d => d.day === day);
+    const dayIndex = (currentPlan.days as any[]).findIndex((d: any) => d.day === day);
     if (dayIndex === -1) {
       return res.status(400).json({
         error: 'ValidationError',
@@ -728,7 +738,7 @@ router.delete('/meal-plan/:userId/meal', async (req: Request, res: Response) => 
     }
 
     // Find the meal to remove
-    const mealIndex = currentPlan.days[dayIndex].meals.findIndex(m => m.mealType === mealType);
+    const mealIndex = (currentPlan.days[dayIndex].meals as any[]).findIndex((m: any) => m.mealType === mealType);
     if (mealIndex === -1) {
       return res.status(404).json({
         error: 'NotFoundError',
@@ -774,24 +784,14 @@ router.delete('/meal-plan/:userId/meal', async (req: Request, res: Response) => 
     // Recalculate total weekly cost
     const totalWeeklyCost = shoppingList.totalCost;
 
-    // Update meal plan with new shopping list and cost
-    const updatedMealPlan: MealPlan = {
-      ...currentPlan,
+    console.log('Shopping list regenerated, updating plans table');
+
+    // Update meal plan in plans table
+    const updatedMealPlan = await getDBService().updateMealPlan(userId, mealPlanId, {
+      days: currentPlan.days,
       shoppingList,
       totalWeeklyCost,
-      updatedAt: new Date().toISOString(),
-    };
-
-    console.log('Shopping list regenerated, saving to DynamoDB');
-
-    // Save updated plan to DynamoDB
-    await getDBService().updateUser(userId, {
-      mealPlan: {
-        ...userMealPlan,
-        plan: updatedMealPlan,
-        updatedAt: updatedMealPlan.updatedAt,
-      },
-    } as any);
+    });
 
     console.log('Meal removed successfully');
 

@@ -164,6 +164,136 @@ Run `npm run type-check` to see detailed type errors
 
 ---
 
+## 🔑 API Configuration
+
+### Eventbrite API Integration
+
+SaveSmart integrates with the Eventbrite API v3 to provide real event discovery for students and tech professionals in Melbourne. The integration is **optional** and will automatically fall back to mock data if not configured.
+
+#### Obtaining an Eventbrite API Key
+
+1. **Create an Eventbrite Account**
+   - Visit [https://www.eventbrite.com](https://www.eventbrite.com)
+   - Sign up for a free account or log in to your existing account
+
+2. **Access the Developer Portal**
+   - Navigate to [https://www.eventbrite.com/platform/api](https://www.eventbrite.com/platform/api)
+   - Click on "Get Started" or "Create App"
+
+3. **Create a New App**
+   - Fill in the application details:
+     - **App Name:** SaveSmart (or your preferred name)
+     - **Description:** Personal savings agent for Australian students
+     - **Website URL:** Your application URL (can use localhost for development)
+   - Accept the API Terms of Service
+   - Click "Create App"
+
+4. **Get Your OAuth Token**
+   - After creating the app, you'll be redirected to the app details page
+   - Look for the **"Private Token"** or **"OAuth Token"** section
+   - Copy the token (it will look like: `ABC123XYZ456DEF789...`)
+   - **Important:** Keep this token secure and never commit it to version control
+
+#### Configuring the API Key
+
+1. **Backend Configuration**
+   - Navigate to the `savesmart-backend` directory
+   - Copy `.env.example` to `.env` if you haven't already:
+     ```bash
+     cp .env.example .env
+     ```
+   - Open `.env` and add your Eventbrite API key:
+     ```
+     EVENTBRITE_API_KEY=your_private_oauth_token_here
+     ```
+
+2. **Verify Configuration**
+   - The API key should be a non-empty string
+   - No additional formatting or prefixes needed (the app adds "Bearer" automatically)
+   - Restart your backend server after updating the `.env` file
+
+#### OAuth Token Requirements
+
+- **Token Type:** Private OAuth Token (Bearer token)
+- **Authentication Method:** Bearer token in Authorization header
+- **Permissions Required:** Read access to public events
+- **Rate Limits:** Eventbrite API has rate limits (typically 1000 requests/hour for free tier)
+- **Token Expiration:** Private tokens do not expire unless manually revoked
+
+#### Fallback Behavior
+
+The application is designed to work seamlessly with or without the Eventbrite API key:
+
+**When API Key is Configured:**
+- Fetches real events from Eventbrite API v3
+- Filters events by location (Melbourne area)
+- Caches responses for 1 hour to reduce API calls
+- Events are marked with `source: "eventbrite"`
+
+**When API Key is Missing or Invalid:**
+- Automatically falls back to mock event data
+- No errors or crashes - seamless user experience
+- Mock data includes realistic Melbourne events
+- Events are marked with `source: "mock"`
+- A warning is logged to the console for debugging
+
+**When API Errors Occur:**
+- Network timeouts, API errors, or rate limits trigger fallback
+- Error details are logged for debugging
+- Users still see event data (mock) without interruption
+
+#### Testing the Integration
+
+1. **With API Key:**
+   ```bash
+   # Start the backend server
+   cd savesmart-backend
+   npm run dev
+
+   # Make a test request
+   curl http://localhost:3001/api/events?suburb=Melbourne
+   ```
+   - Check the response for `"source": "eventbrite"`
+   - Verify real event data is returned
+
+2. **Without API Key:**
+   ```bash
+   # Remove or comment out EVENTBRITE_API_KEY in .env
+   # Restart the server
+   npm run dev
+
+   # Make a test request
+   curl http://localhost:3001/api/events?suburb=Melbourne
+   ```
+   - Check the response for `"source": "mock"`
+   - Verify mock event data is returned
+   - Check console for fallback warning message
+
+#### Troubleshooting
+
+**"401 Unauthorized" errors:**
+- Verify your API key is correct and hasn't been revoked
+- Check that the key is properly set in the `.env` file
+- Ensure no extra spaces or quotes around the key
+
+**"429 Too Many Requests" errors:**
+- You've hit the rate limit
+- The app will automatically fall back to mock data
+- Wait for the rate limit to reset (typically 1 hour)
+- Consider implementing request throttling for production
+
+**No events returned:**
+- Check that your location query is valid (e.g., "Melbourne, VIC")
+- Verify the Eventbrite API is accessible from your network
+- Check console logs for detailed error messages
+
+**API key not being read:**
+- Ensure the `.env` file is in the `savesmart-backend` directory
+- Restart the backend server after updating `.env`
+- Check that the variable name is exactly `EVENTBRITE_API_KEY`
+
+---
+
 ## 👥 Team Structure
 
 ### Squad A: Frontend Team
