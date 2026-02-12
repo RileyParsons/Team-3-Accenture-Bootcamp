@@ -43,6 +43,15 @@ export default function Onboarding() {
   // Get user data from localStorage to pre-fill name
   const getUserData = () => {
     if (typeof window === 'undefined') return '';
+
+    // Try to get temp signup data first
+    const tempSignupStr = localStorage.getItem('savesmart_temp_signup');
+    if (tempSignupStr) {
+      const tempSignup = JSON.parse(tempSignupStr);
+      return tempSignup.name || `${tempSignup.firstName || ''} ${tempSignup.lastName || ''}`.trim();
+    }
+
+    // Fallback to regular user data
     const userDataStr = localStorage.getItem('savesmart_user');
     if (userDataStr) {
       const userData = JSON.parse(userDataStr);
@@ -86,16 +95,16 @@ export default function Onboarding() {
     setError(null);
 
     try {
-      // Get user data from localStorage (set during signup)
-      const userDataStr = localStorage.getItem('savesmart_user');
-      const userData = userDataStr ? JSON.parse(userDataStr) : null;
-
-      if (!userData || !userData.email) {
-        throw new Error('User not found. Please sign up first.');
+      // Get temporary signup data from localStorage
+      const tempSignupStr = localStorage.getItem('savesmart_temp_signup');
+      if (!tempSignupStr) {
+        throw new Error('Signup data not found. Please sign up first.');
       }
 
+      const tempSignup = JSON.parse(tempSignupStr);
+
       // Generate userId from email
-      const userId = userData.email.replace('@', '-').replace(/\./g, '-');
+      const userId = tempSignup.email.replace('@', '-').replace(/\./g, '-');
 
       // Convert frequencies to monthly amounts
       const getMonthlyAmount = (amount: number, frequency: 'weekly' | 'fortnightly' | 'monthly') => {
@@ -144,45 +153,43 @@ export default function Onboarding() {
         }
       });
 
-      // Prepare user profile for backend (NEW SCHEMA)
-      const userProfile = {
-        userId: userId,
-        email: userData.email,
-        name: profile.name.trim() || `${userData.firstName} ${userData.lastName}`,
-        income: Math.round(monthlyIncome),
-        incomeFrequency: profile.incomeFrequency,
-        savings: profile.currentSavings,
-        location: profile.location.trim() || null,
-        postcode: profile.postcode.trim() || null,
-        recurringExpenses: recurringExpenses
+      // Import registerUser function for API call
+      const { registerUser } = await import('@/lib/api');
+
+      // Register user with complete profile (includes password hashing)
+      const result = await registerUser(
+        tempSignup.email,
+        tempSignup.password,
+        profile.name.trim() || tempSignup.name,
+        {
+          income: Math.round(monthlyIncome),
+          incomeFrequency: profile.incomeFrequency,
+          savings: profile.currentSavings,
+          location: profile.location.trim() || null,
+          postcode: profile.postcode.trim() || null,
+          recurringExpenses: recurringExpenses
+        }
+      );
+
+      if (!result || !result.userId) {
+        throw new Error('Failed to create account');
+      }
+
+      // Store user data in localStorage for session management
+      const localUserData = {
+        userId: result.userId,
+        email: tempSignup.email,
+        firstName: tempSignup.firstName,
+        lastName: tempSignup.lastName,
+        name: profile.name.trim() || tempSignup.name,
+        createdAt: new Date().toISOString()
       };
 
-      // Save to localStorage as backup
-      localStorage.setItem('savesmart_profile', JSON.stringify(userProfile));
+      localStorage.setItem('savesmart_user', JSON.stringify(localUserData));
+      localStorage.setItem('savesmart_authenticated', 'true');
 
-      // Try to save to backend API
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-      const useMock = process.env.NEXT_PUBLIC_USE_MOCK === 'true';
-
-      if (apiUrl && !useMock) {
-        const response = await fetch(`${apiUrl}/test_users`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(userProfile),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || `Failed to save profile: ${response.status}`);
-        }
-
-        const result = await response.json();
-        console.log('Profile saved to backend:', result);
-      } else {
-        console.log('Mock mode: Profile saved to localStorage only');
-      }
+      // Clear temporary signup data
+      localStorage.removeItem('savesmart_temp_signup');
 
       // Navigate to meal plan page
       router.push('/meal-plan');

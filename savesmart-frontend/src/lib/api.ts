@@ -104,20 +104,41 @@ export const saveUser = async (
 export const registerUser = async (
     email: string,
     password: string,
-    name: string
+    name: string,
+    profileData?: {
+        income?: number;
+        incomeFrequency?: string;
+        savings?: number;
+        location?: string | null;
+        postcode?: string | null;
+        recurringExpenses?: any[];
+    }
 ): Promise<SaveUserResponse | null> => {
     try {
-        const userId = generateUserId();
+        // Use email-based userId for consistent lookup
+        const userId = email.replace('@', '-').replace(/\./g, '-');
         const hashedPassword = await hashPassword(password);
 
         console.log('Registering user:', { userId, email, name });
 
-        const result = await saveUser({
+        const userData: any = {
             userId,
             email,
             name,
             hashedPassword
-        });
+        };
+
+        // Add profile data if provided (from onboarding)
+        if (profileData) {
+            userData.income = profileData.income || 0;
+            userData.incomeFrequency = profileData.incomeFrequency || 'monthly';
+            userData.savings = profileData.savings || 0;
+            userData.location = profileData.location || null;
+            userData.postcode = profileData.postcode || null;
+            userData.recurringExpenses = profileData.recurringExpenses || [];
+        }
+
+        const result = await saveUser(userData);
 
         console.log('Registration result:', result);
 
