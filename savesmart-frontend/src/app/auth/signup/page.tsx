@@ -4,7 +4,6 @@ import { useState } from "react";
 import { PiggyBank, Eye, EyeOff, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { registerUser, generateUserId } from "@/lib/api";
 
 export default function Signup() {
   const router = useRouter();
@@ -63,35 +62,23 @@ export default function Signup() {
       setIsLoading(true);
 
       try {
-        // Register user with password
-        const result = await registerUser(
-          formData.email,
-          formData.password,
-          `${formData.firstName} ${formData.lastName}`
-        );
-
-        if (!result || !result.userId) {
-          throw new Error('Failed to create account');
-        }
-
-        // Store user data in localStorage for session management
-        const localUserData = {
-          userId: result.userId,
+        // Store signup data temporarily in localStorage (not sent to backend yet)
+        const tempSignupData = {
           email: formData.email,
+          password: formData.password, // Will be hashed during onboarding submission
           firstName: formData.firstName,
           lastName: formData.lastName,
           name: `${formData.firstName} ${formData.lastName}`,
-          createdAt: new Date().toISOString()
+          signupDate: new Date().toISOString()
         };
 
-        localStorage.setItem('savesmart_user', JSON.stringify(localUserData));
-        localStorage.setItem('savesmart_authenticated', 'true');
+        localStorage.setItem('savesmart_temp_signup', JSON.stringify(tempSignupData));
 
-        // Redirect to onboarding
+        // Redirect to onboarding (POST request will happen after onboarding)
         router.push('/onboarding');
       } catch (error: any) {
         console.error('Signup error:', error);
-        const errorMessage = error?.message || 'Failed to create account. Please try again.';
+        const errorMessage = error?.message || 'Failed to proceed. Please try again.';
         setErrors({ submit: errorMessage });
       } finally {
         setIsLoading(false);
