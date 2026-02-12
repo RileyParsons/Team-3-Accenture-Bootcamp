@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { getProfile, UserData, getTransactionSummary, TransactionSummary, createTransaction, TransactionType, TransactionCategory } from '@/lib/api';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
 
 interface ExpenseBreakdown {
   name: string;
@@ -63,10 +63,10 @@ export default function DashboardPage() {
       const profileData = await getProfile(userId);
       setProfile(profileData);
 
-      // Load transaction summary for the last 30 days
+      // Load transaction summary for the last 90 days (for chart)
       const endDate = new Date();
       const startDate = new Date();
-      startDate.setDate(startDate.getDate() - 30);
+      startDate.setDate(startDate.getDate() - 90);
 
       const summary = await getTransactionSummary(
         userId,
@@ -138,7 +138,7 @@ export default function DashboardPage() {
         { value: 'allowance', label: 'Allowance' },
         { value: 'other-income', label: 'Other Income' },
       ];
-    } else if (type === 'expense') {
+    } else {
       return [
         { value: 'rent', label: 'Rent' },
         { value: 'groceries', label: 'Groceries' },
@@ -146,11 +146,6 @@ export default function DashboardPage() {
         { value: 'entertainment', label: 'Entertainment' },
         { value: 'utilities', label: 'Utilities' },
         { value: 'other-expense', label: 'Other Expense' },
-      ];
-    } else {
-      return [
-        { value: 'savings-deposit', label: 'Savings Deposit' },
-        { value: 'savings-withdrawal', label: 'Savings Withdrawal' },
       ];
     }
   };
@@ -170,12 +165,40 @@ export default function DashboardPage() {
   const calculateMetrics = () => {
     if (!profile) return null;
 
-    const monthlyIncome = profile.income || 0;
+    // Check if we have transaction data
+    const hasTransactions = transactionSummary && transactionSummary.summary.length > 0;
 
-    // Calculate total monthly expenses
+    let monthlyIncome = 0;
     let totalMonthlyExpenses = 0;
-    const expenseBreakdown: ExpenseBreakdown[] = [];
+    let currentSavings = profile.savings || 0;
 
+    if (hasTransactions) {
+      // Calculate from actual transactions (last 30 days)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const lastMonthData = transactionSummary.summary.filter(d => new Date(d.date) >= thirtyDaysAgo);
+
+      monthlyIncome = lastMonthData.reduce((sum, d) => sum + d.income, 0);
+      totalMonthlyExpenses = lastMonthData.reduce((sum, d) => sum + d.expenses, 0);
+
+      // Current savings = initial savings + (all income - all expenses)
+      transactionSummary.summary.forEach(d => {
+        currentSavings += (d.income - d.expenses);
+      });
+    } else {
+      // Use onboarding form data as starting point
+      monthlyIncome = profile.income || 0;
+
+      // Calculate total monthly expenses from recurring expenses
+      if (profile.recurringExpenses && profile.recurringExpenses.length > 0) {
+        profile.recurringExpenses.forEach((expense) => {
+          totalMonthlyExpenses += getMonthlyAmount(expense.amount, expense.frequency);
+        });
+      }
+    }
+
+    // Expense breakdown (always from profile recurring expenses)
+    const expenseBreakdown: ExpenseBreakdown[] = [];
     const colors = [
       'bg-blue-500',
       'bg-green-500',
@@ -190,8 +213,6 @@ export default function DashboardPage() {
     if (profile.recurringExpenses && profile.recurringExpenses.length > 0) {
       profile.recurringExpenses.forEach((expense, index) => {
         const monthlyAmount = getMonthlyAmount(expense.amount, expense.frequency);
-        totalMonthlyExpenses += monthlyAmount;
-
         expenseBreakdown.push({
           name: expense.name,
           amount: expense.amount,
@@ -210,7 +231,7 @@ export default function DashboardPage() {
       totalMonthlyExpenses,
       availableToSave,
       savingsRate,
-      currentSavings: profile.savings || 0,
+      currentSavings: Math.max(0, currentSavings),
       expenseBreakdown
     };
   };
@@ -313,7 +334,7 @@ export default function DashboardPage() {
               {/* Type */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setTransactionForm({ ...transactionForm, type: 'income', category: 'salary' })}
@@ -336,18 +357,19 @@ export default function DashboardPage() {
                   >
                     Expense
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setTransactionForm({ ...transactionForm, type: 'savings', category: 'savings-deposit' })}
-                    className={`p-2 rounded-lg border-2 text-sm font-medium transition-colors ${
-                      transactionForm.type === 'savings'
-                        ? 'border-green-500 bg-green-50 text-green-700'
-                        : 'border-gray-200 text-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    Savings
-                  </button>
                 </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Description (Optional)</label>
+                <input
+                  type="text"
+                  value={transactionForm.description}
+                  onChange={(e) => setTransactionForm({ ...transactionForm, description: e.target.value })}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 placeholder-gray-400"
+                  placeholder={transactionForm.type === 'income' ? 'e.g., Weekly paycheck' : 'e.g., Weekly groceries'}
+                />
               </div>
 
               {/* Category */}
@@ -376,18 +398,6 @@ export default function DashboardPage() {
                   className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 placeholder-gray-400"
                   placeholder="0.00"
                   required
-                />
-              </div>
-
-              {/* Description */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Description (Optional)</label>
-                <input
-                  type="text"
-                  value={transactionForm.description}
-                  onChange={(e) => setTransactionForm({ ...transactionForm, description: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 placeholder-gray-400"
-                  placeholder="e.g., Weekly groceries"
                 />
               </div>
 
@@ -520,7 +530,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Savings Over Time Chart */}
-          {transactionSummary && transactionSummary.summary.length > 0 && (
+          {transactionSummary && transactionSummary.summary.length > 0 ? (
             <div className="bg-white rounded-lg shadow-md p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-2">
@@ -552,10 +562,14 @@ export default function DashboardPage() {
                     const data = transactionSummary.summary;
                     const today = new Date().toISOString().split('T')[0];
 
-                    // Calculate cumulative savings (income - expenses over time)
-                    let cumulativeSavings = 0;
+                    // Start with initial savings from profile
+                    let cumulativeSavings = profile?.savings || 0;
+
                     const processedData = data.map((d, index) => {
-                      cumulativeSavings += (d.income - d.expenses);
+                      // Savings = income - expenses only (no separate savings deposits)
+                      const netChange = d.income - d.expenses;
+                      cumulativeSavings += netChange;
+
                       const date = new Date(d.date);
                       const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -598,10 +612,10 @@ export default function DashboardPage() {
                     const expensesTrend = calculateTrend(processedData.map(d => d.expenses));
                     const savingsTrend = calculateTrend(processedData.map(d => d.savings));
 
-                    // Create 3 projection points
+                    // Create 6 projection points (extend further into future)
                     const lastIndex = processedData.length - 1;
                     const projections = [];
-                    for (let i = 1; i <= 3; i++) {
+                    for (let i = 1; i <= 6; i++) {
                       const futureIndex = lastIndex + i;
                       const futureDate = new Date(processedData[lastIndex].date);
                       futureDate.setDate(futureDate.getDate() + (i * 7)); // Weekly projections
@@ -625,22 +639,27 @@ export default function DashboardPage() {
                     return (
                       <div className="h-96">
                         <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                          <ComposedChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                             <XAxis
                               dataKey="dateLabel"
                               stroke="#6b7280"
                               style={{ fontSize: '12px' }}
+                              label={{ value: 'Date', position: 'insideBottom', offset: -5, style: { fontSize: '14px', fill: '#374151', fontWeight: 600 } }}
                             />
                             <YAxis
                               stroke="#6b7280"
                               style={{ fontSize: '12px' }}
                               tickFormatter={(value) => `$${value}`}
+                              label={{ value: 'Amount ($)', angle: -90, position: 'insideLeft', style: { fontSize: '14px', fill: '#374151', fontWeight: 600 } }}
                             />
                             <Tooltip
-                              formatter={(value: any) => [`$${value}`, '']}
+                              formatter={(value: any, name: string) => {
+                                if (value === null) return [null, ''];
+                                return [`$${value}`, name];
+                              }}
                               labelStyle={{ color: '#374151', fontWeight: 600 }}
-                              contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+                              contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px' }}
                             />
                             <Legend
                               wrapperStyle={{ paddingTop: '20px' }}
@@ -658,28 +677,24 @@ export default function DashboardPage() {
                               />
                             )}
 
-                            {/* Actual data lines (solid) */}
-                            <Line
-                              type="monotone"
-                              dataKey="income"
-                              stroke="#3b82f6"
-                              strokeWidth={2}
-                              dot={false}
+                            {/* Bars for income and expenses (actual data only) */}
+                            <Bar
+                              dataKey={(entry) => !entry.isProjection ? entry.income : null}
+                              fill="#3b82f6"
                               name="Income"
-                              connectNulls
+                              radius={[4, 4, 0, 0]}
                             />
-                            <Line
-                              type="monotone"
-                              dataKey="expenses"
-                              stroke="#ef4444"
-                              strokeWidth={2}
-                              dot={false}
+                            <Bar
+                              dataKey={(entry) => !entry.isProjection ? entry.expenses : null}
+                              fill="#ef4444"
                               name="Expenses"
-                              connectNulls
+                              radius={[4, 4, 0, 0]}
                             />
+
+                            {/* Lines for savings (actual and projected) */}
                             <Line
                               type="monotone"
-                              dataKey="savings"
+                              dataKey={(entry) => !entry.isProjection ? entry.savings : null}
                               stroke="#10b981"
                               strokeWidth={3}
                               dot={false}
@@ -687,29 +702,7 @@ export default function DashboardPage() {
                               connectNulls
                             />
 
-                            {/* Projection lines (dashed) - only show for projection points */}
-                            <Line
-                              type="monotone"
-                              dataKey={(entry) => entry.isProjection ? entry.income : null}
-                              stroke="#3b82f6"
-                              strokeWidth={2}
-                              strokeDasharray="5 5"
-                              dot={false}
-                              name="Projected Income"
-                              opacity={0.6}
-                              connectNulls
-                            />
-                            <Line
-                              type="monotone"
-                              dataKey={(entry) => entry.isProjection ? entry.expenses : null}
-                              stroke="#ef4444"
-                              strokeWidth={2}
-                              strokeDasharray="5 5"
-                              dot={false}
-                              name="Projected Expenses"
-                              opacity={0.6}
-                              connectNulls
-                            />
+                            {/* Projection line (dashed, savings only) */}
                             <Line
                               type="monotone"
                               dataKey={(entry) => entry.isProjection ? entry.savings : null}
@@ -721,7 +714,7 @@ export default function DashboardPage() {
                               opacity={0.6}
                               connectNulls
                             />
-                          </LineChart>
+                          </ComposedChart>
                         </ResponsiveContainer>
                       </div>
                     );
@@ -732,22 +725,61 @@ export default function DashboardPage() {
               {/* Summary stats */}
               <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-gray-200">
                 <div className="text-center">
-                  <p className="text-sm text-gray-600">Total Income</p>
+                  <p className="text-sm text-gray-600">Last Month's Income</p>
                   <p className="text-lg font-bold text-blue-600">
-                    ${transactionSummary.totals.income.toFixed(2)}
+                    ${(() => {
+                      // Calculate last month's income (last 30 days)
+                      const thirtyDaysAgo = new Date();
+                      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                      const lastMonthData = transactionSummary.summary.filter(d => new Date(d.date) >= thirtyDaysAgo);
+                      const lastMonthIncome = lastMonthData.reduce((sum, d) => sum + d.income, 0);
+                      return lastMonthIncome.toFixed(2);
+                    })()}
                   </p>
                 </div>
                 <div className="text-center">
-                  <p className="text-sm text-gray-600">Total Expenses</p>
+                  <p className="text-sm text-gray-600">Last Month's Expenses</p>
                   <p className="text-lg font-bold text-red-600">
-                    ${transactionSummary.totals.expenses.toFixed(2)}
+                    ${(() => {
+                      // Calculate last month's expenses (last 30 days)
+                      const thirtyDaysAgo = new Date();
+                      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                      const lastMonthData = transactionSummary.summary.filter(d => new Date(d.date) >= thirtyDaysAgo);
+                      const lastMonthExpenses = lastMonthData.reduce((sum, d) => sum + d.expenses, 0);
+                      return lastMonthExpenses.toFixed(2);
+                    })()}
                   </p>
                 </div>
                 <div className="text-center">
-                  <p className="text-sm text-gray-600">Total Saved</p>
+                  <p className="text-sm text-gray-600">Current Savings</p>
                   <p className="text-lg font-bold text-green-600">
-                    ${transactionSummary.totals.savings.toFixed(2)}
+                    ${metrics.currentSavings.toFixed(2)}
                   </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-2">
+                  <ChartIcon className="h-6 w-6 text-blue-600" />
+                  <h2 className="text-xl font-bold text-gray-900">Financial Trend & Projection</h2>
+                </div>
+              </div>
+              <div className="h-80 flex items-center justify-center bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                <div className="text-center p-6">
+                  <ChartIcon className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                  <p className="text-gray-600 font-medium mb-2">Start tracking your finances</p>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Add your first transaction to see your financial trends and projections over time.
+                  </p>
+                  <button
+                    onClick={() => setShowAddTransaction(true)}
+                    className="inline-flex items-center space-x-2 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                  >
+                    <Plus className="h-5 w-5" />
+                    <span>Add Your First Transaction</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -855,15 +887,6 @@ export default function DashboardPage() {
                     </div>
                     <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-blue-600" />
                   </button>
-                </div>
-              )}
-
-              {/* Savings rate tips */}
-              {metrics.savingsRate >= 30 && (
-                <div className="p-3 bg-white rounded-lg">
-                  <p className="text-sm text-gray-700">
-                    🎉 Great job! You're saving over 30% of your income - keep up the excellent work
-                  </p>
                 </div>
               )}
 

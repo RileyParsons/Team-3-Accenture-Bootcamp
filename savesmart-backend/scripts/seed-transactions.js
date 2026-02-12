@@ -52,116 +52,119 @@ const generateTransactions = (userId) => {
   const transactions = [];
   const today = new Date();
 
-  // Start with a good initial savings balance
-  let currentSavings = 1500; // Starting with $1500 in savings
+  // Note: Initial savings should be set to $1000 in the user's profile
+  // Strategy: Gentle decline from $1000 to $400 over 90 days
+  // Target: -$600 total = -$200/month deficit
+  // CRITICAL: Income must be LESS than expenses
 
   // Go back 90 days
-  for (let daysAgo = 90; daysAgo >= 0; daysAgo -= 3) {
+  for (let daysAgo = 90; daysAgo >= 0; daysAgo--) {
     const date = new Date(today);
     date.setDate(date.getDate() - daysAgo);
     const dateStr = date.toISOString().split('T')[0];
 
-    // Weekly income (every 7 days) - consistent amount
+    // Weekly income (every 7 days) - REDUCED income
     if (daysAgo % 7 === 0) {
       transactions.push({
         transactionId: `${userId}#income_${Date.now()}_${daysAgo}`,
         userId,
         type: 'income',
         category: 'salary',
-        amount: 600 + Math.random() * 50, // $600-$650 weekly
+        amount: 400, // Reduced to $400 weekly (~$1600/month)
         description: 'Weekly salary',
         date: dateStr,
         createdAt: new Date().toISOString(),
       });
     }
 
-    // Regular expenses (every 3-4 days) - gradually increasing
-    const expenseMultiplier = 1 + ((90 - daysAgo) / 90) * 0.3; // Expenses increase by 30% over time
-
-    if (daysAgo % 3 === 0) {
-      // Groceries - increasing over time
+    // Groceries - every 4 days (~$70/week = $280/month)
+    if (daysAgo % 4 === 1) {
       transactions.push({
         transactionId: `${userId}#expense_groceries_${Date.now()}_${daysAgo}`,
         userId,
         type: 'expense',
         category: 'groceries',
-        amount: (40 + Math.random() * 30) * expenseMultiplier, // $40-$70, increasing
+        amount: 70,
         description: 'Grocery shopping',
         date: dateStr,
         createdAt: new Date().toISOString(),
       });
     }
 
-    if (daysAgo % 4 === 0) {
-      // Fuel - increasing over time
+    // Fuel - every 5 days (~$60/week = $240/month)
+    if (daysAgo % 5 === 2) {
       transactions.push({
         transactionId: `${userId}#expense_fuel_${Date.now()}_${daysAgo}`,
         userId,
         type: 'expense',
         category: 'fuel',
-        amount: (30 + Math.random() * 20) * expenseMultiplier, // $30-$50, increasing
+        amount: 60,
         description: 'Fuel',
         date: dateStr,
         createdAt: new Date().toISOString(),
       });
     }
 
-    // Monthly expenses
-    if (daysAgo % 30 === 0) {
-      // Rent - fixed
+    // Monthly rent ($550/month)
+    if (daysAgo % 30 === 15) {
       transactions.push({
         transactionId: `${userId}#expense_rent_${Date.now()}_${daysAgo}`,
         userId,
         type: 'expense',
         category: 'rent',
-        amount: 500, // Fixed $500 rent
+        amount: 550,
         description: 'Monthly rent',
         date: dateStr,
         createdAt: new Date().toISOString(),
       });
+    }
 
-      // Utilities - slightly increasing
+    // Utilities ($100/month)
+    if (daysAgo % 30 === 20) {
       transactions.push({
         transactionId: `${userId}#expense_utilities_${Date.now()}_${daysAgo}`,
         userId,
         type: 'expense',
         category: 'utilities',
-        amount: (60 + Math.random() * 20) * expenseMultiplier, // $60-$80, increasing
+        amount: 100,
         description: 'Utilities bill',
         date: dateStr,
         createdAt: new Date().toISOString(),
       });
     }
 
-    // Occasional entertainment - increasing frequency
-    if (daysAgo % 12 === 0) {
+    // Entertainment - every 7 days (~$50/week = $200/month)
+    if (daysAgo % 7 === 3) {
       transactions.push({
         transactionId: `${userId}#expense_entertainment_${Date.now()}_${daysAgo}`,
         userId,
         type: 'expense',
         category: 'entertainment',
-        amount: (20 + Math.random() * 40) * expenseMultiplier, // $20-$60, increasing
+        amount: 50,
         description: 'Entertainment',
         date: dateStr,
         createdAt: new Date().toISOString(),
       });
     }
 
-    // Savings deposits (every 2 weeks) - decreasing over time
-    if (daysAgo % 14 === 0 && daysAgo > 30) {
-      const savingsAmount = Math.max(50, 150 - ((90 - daysAgo) / 90) * 100); // Start at $150, decrease to $50
+    // Other expenses - every 8 days (~$40/week = $160/month)
+    if (daysAgo % 8 === 0) {
       transactions.push({
-        transactionId: `${userId}#savings_${Date.now()}_${daysAgo}`,
+        transactionId: `${userId}#expense_other_${Date.now()}_${daysAgo}`,
         userId,
-        type: 'savings',
-        category: 'savings-deposit',
-        amount: savingsAmount,
-        description: 'Savings deposit',
+        type: 'expense',
+        category: 'other-expense',
+        amount: 40,
+        description: 'Other expenses',
         date: dateStr,
         createdAt: new Date().toISOString(),
       });
     }
   }
+
+  // Monthly totals: Income ~$1600, Expenses ~$1830 = -$230/month deficit
+  // Over 90 days (3 months): -$690 total
+  // Starting at $1000 -> ~$310 final (close to $400 target)
 
   return transactions;
 };
@@ -199,13 +202,12 @@ const seedTransactions = async () => {
   // Calculate summary
   const income = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
   const expenses = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
-  const savings = transactions.filter(t => t.type === 'savings').reduce((sum, t) => sum + t.amount, 0);
 
   console.log(`\nSummary (Last 3 months):`);
   console.log(`💰 Total Income: $${income.toFixed(2)}`);
   console.log(`💸 Total Expenses: $${expenses.toFixed(2)}`);
-  console.log(`🏦 Total Savings: $${savings.toFixed(2)}`);
-  console.log(`📊 Net: $${(income - expenses).toFixed(2)}`);
+  console.log(`📊 Net Change: $${(income - expenses).toFixed(2)}`);
+  console.log(`\n💡 Your savings will be: Initial Savings + Net Change`);
 };
 
 // Run the seeding
