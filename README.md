@@ -1,4 +1,3 @@
-# SaveSmart - AI-Powered Personal Savings Agent
 
 **Team 3 - Accenture Bootcamp**
 **Timeline:** February 11-14, 2026 (4 days)
