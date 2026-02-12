@@ -10,6 +10,9 @@
 
 import OpenAI from 'openai';
 import { getConfig } from '../config/env.js';
+import { DynamoDBService } from './dynamodb.js';
+import type { MealPlanPreferences, AIMealPlanResponse } from '../models/MealPlan.js';
+import type { Recipe } from '../models/Recipe.js';
 
 /**
  * Chat context from the frontend
@@ -58,6 +61,7 @@ export interface SavingsPlan {
  */
 export class WebhookService {
   private openai: OpenAI;
+  private dynamoDBService: DynamoDBService;
   private readonly CHAT_TIMEOUT = 30000; // 30 seconds
 
   constructor() {
@@ -65,6 +69,7 @@ export class WebhookService {
     this.openai = new OpenAI({
       apiKey: config.openai.apiKey,
     });
+    this.dynamoDBService = new DynamoDBService();
   }
 
   /**
@@ -251,6 +256,167 @@ Distribute the recipes across the week for variety and provide cost optimization
         throw error;
       }
       throw new Error('Unknown error calling meal planning agent');
+    }
+  }
+
+  /**
+   * Generate AI-powered meal plan based on user preferences
+   * Requirements: 3.1, 3.2, 3.3, 3.4, 3.7, 3.8
+   *
+   * @param preferences - User's dietary preferences and restrictions
+   * @returns AI-generated meal plan with 7 days of meals
+   * @throws Error if API failure or validation error
+   */
+  async generateMealPlan(preferences: MealPlanPreferences): Promise<AIMealPlanResponse> {
+    try {
+      console.log('WebhookService: Starting meal plan generation');
+
+      // Fetch available recipes from DynamoDB
+      const recipes = await this.dynamoDBService.getRecipes();
+      console.log(`WebhookService: Fetched ${recipes.length} recipes from database`);
+
+      // Build recipe list for prompt
+      const recipeList = recipes.map((recipe: Recipe) => ({
+        id: recipe.recipeId,
+        name: recipe.name,
+        dietaryTags: recipe.dietaryTags,
+        cost: recipe.totalCost,
+        servings: recipe.servings,
+      }));
+
+      // Construct detailed prompt
+      const systemPrompt = `You are a professional meal planning nutritionist. Generate a personalized weekly meal plan based on user preferences.
+
+Return your response as a JSON object with this exact structure:
+{
+  "days": [
+    {
+      "day": "Monday",
+      "meals": [
+        {
+          "mealType": "breakfast",
+          "name": "Meal Name",
+          "description": "Brief description",
+          "recipeId": "recipe-id or null if custom",
+          "estimatedCalories": number,
+          "estimatedCost": number
+        },
+        {
+          "mealType": "lunch",
+          "name": "Meal Name",
+          "description": "Brief description",
+          "recipeId": "recipe-id or null if custom",
+          "estimatedCalories": number,
+          "estimatedCost": number
+        },
+        {
+          "mealType": "dinner",
+          "name": "Meal Name",
+          "description": "Brief description",
+          "recipeId": "recipe-id or null if custom",
+          "estimatedCalories": number,
+          "estimatedCost": number
+        },
+        {
+          "mealType": "snack",
+          "name": "Meal Name",
+          "description": "Brief description",
+          "recipeId": "recipe-id or null if custom",
+          "estimatedCalories": number,
+          "estimatedCost": number
+        }
+      ]
+    }
+  ],
+  "totalWeeklyCost": number,
+  "nutritionSummary": {
+    "averageDailyCalories": number,
+    "proteinGrams": number,
+    "carbsGrams": number,
+    "fatGrams": number
+  },
+  "notes": "Any important notes about the meal plan"
+}`;
+
+      const userPrompt = `Generate a personalized weekly meal plan with these preferences:
+
+Dietary Restrictions (Allergies): ${preferences.allergies.length > 0 ? preferences.allergies.join(', ') : 'None'}
+Daily Calorie Goal: ${preferences.calorieGoal} calories
+Cultural Preference: ${preferences.culturalPreference || 'None'}
+Diet Type: ${preferences.dietType || 'None'}
+Additional Notes: ${preferences.notes || 'None'}
+
+Requirements:
+- Generate exactly 7 days of meals (Monday through Sunday)
+- Each day MUST have exactly 4 meals: breakfast, lunch, dinner, and snack
+- STRICTLY avoid any ingredients containing the listed allergens
+- Aim for the specified daily calorie goal (within 15% tolerance)
+- Incorporate the cultural preference where possible
+- Follow the diet type restrictions strictly
+- Prioritize recipes from the provided database when available (aim for at least 70% of meals)
+- Pay attention to the user's likes and dislikes in the notes
+
+Available Recipes from Database:
+${JSON.stringify(recipeList, null, 2)}
+
+Important:
+- Use recipeId from the database when using a recipe
+- Set recipeId to null for custom meals not from the database
+- Ensure meal variety across the week
+- Balance nutrition across all meals
+- Provide realistic calorie and cost estimates`;
+
+      console.log('WebhookService: Calling OpenAI API for meal plan generation');
+
+      const completion = await this.openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        max_tokens: 3000,
+        temperature: 0.7,
+        response_format: { type: 'json_object' },
+      });
+
+      const response = completion.choices[0]?.message?.content;
+      if (!response) {
+        throw new Error('No response from AI meal plan generator');
+      }
+
+      console.log('WebhookService: Parsing AI response');
+      const mealPlan = JSON.parse(response) as AIMealPlanResponse;
+
+      // Validate response structure
+      if (!mealPlan.days || !Array.isArray(mealPlan.days)) {
+        throw new Error('Invalid meal plan structure: missing days array');
+      }
+
+      if (mealPlan.days.length !== 7) {
+        throw new Error(`Invalid meal plan structure: expected 7 days, got ${mealPlan.days.length}`);
+      }
+
+      for (const day of mealPlan.days) {
+        if (!day.meals || !Array.isArray(day.meals)) {
+          throw new Error(`Invalid meal plan structure: missing meals array for ${day.day}`);
+        }
+        if (day.meals.length < 3 || day.meals.length > 4) {
+          throw new Error(`Invalid meal plan structure: ${day.day} has ${day.meals.length} meals, expected 3-4`);
+        }
+      }
+
+      if (!mealPlan.nutritionSummary) {
+        throw new Error('Invalid meal plan structure: missing nutritionSummary');
+      }
+
+      console.log('WebhookService: Meal plan generated successfully');
+      return mealPlan;
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error('WebhookService: Meal plan generation error:', error.message);
+        throw error;
+      }
+      throw new Error('Unknown error generating meal plan');
     }
   }
 }

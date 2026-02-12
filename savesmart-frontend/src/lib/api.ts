@@ -648,49 +648,94 @@ export const deleteTransaction = async (transactionId: string): Promise<void> =>
   }
 };
 
-// Meal Plan interfaces
+// AI-Powered Meal Plan interfaces
+export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+
+export interface MealPlanPreferences {
+  allergies: string[];
+  calorieGoal: number;
+  culturalPreference: string;
+  dietType: string;
+  notes: string;
+}
+
+export interface Meal {
+  mealType: MealType;
+  name: string;
+  description: string;
+  recipeId: string | null;
+  estimatedCalories: number;
+  estimatedCost: number;
+}
+
 export interface MealPlanDay {
   day: string;
-  recipeId: string;
-  recipeName: string;
-  mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+  meals: Meal[];
+}
+
+export interface NutritionSummary {
+  averageDailyCalories: number;
+  proteinGrams: number;
+  carbsGrams: number;
+  fatGrams: number;
+}
+
+export interface ShoppingListItem {
+  name: string;
+  quantity: number;
+  unit: string;
+  price: number;
+  recipeIds: string[];
+}
+
+export interface ShoppingListStore {
+  storeName: string;
+  items: ShoppingListItem[];
+  subtotal: number;
+}
+
+export interface ShoppingList {
+  stores: ShoppingListStore[];
+  totalCost: number;
 }
 
 export interface MealPlan {
-  weekStartDate: string;
+  preferences: MealPlanPreferences;
   days: MealPlanDay[];
   totalWeeklyCost: number;
-  createdAt?: string;
+  nutritionSummary: NutritionSummary;
+  shoppingList: ShoppingList;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
-// Create a meal plan from selected recipes
-export const createMealPlan = async (
+// Generate AI-powered meal plan from preferences
+export const generateMealPlan = async (
   userId: string,
-  recipeIds: string[],
-  weekStartDate?: string
+  preferences: MealPlanPreferences
 ): Promise<MealPlan> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/meal-plan`, {
+    const response = await fetch(`${API_BASE_URL}/meal-plan/generate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         userId,
-        recipeIds,
-        weekStartDate,
+        preferences,
       }),
     });
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.error || 'Failed to create meal plan');
+      throw new Error(error.error || 'Failed to generate meal plan');
     }
 
     const data = await response.json();
     return data.mealPlan;
   } catch (error) {
-    console.error('Error creating meal plan:', error);
+    console.error('Error generating meal plan:', error);
     throw error;
   }
 };
@@ -706,6 +751,9 @@ export const getMealPlan = async (userId: string): Promise<MealPlan | null> => {
     });
 
     if (!response.ok) {
+      if (response.status === 404) {
+        return null;
+      }
       throw new Error('Failed to fetch meal plan');
     }
 
@@ -713,6 +761,97 @@ export const getMealPlan = async (userId: string): Promise<MealPlan | null> => {
     return data.mealPlan;
   } catch (error) {
     console.error('Error fetching meal plan:', error);
+    throw error;
+  }
+};
+
+// Update user's meal plan
+export const updateMealPlan = async (
+  userId: string,
+  mealPlan: MealPlan
+): Promise<MealPlan> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/meal-plan/${userId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ mealPlan }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to update meal plan');
+    }
+
+    const data = await response.json();
+    return data.mealPlan;
+  } catch (error) {
+    console.error('Error updating meal plan:', error);
+    throw error;
+  }
+};
+
+// Add a meal to a specific slot in the meal plan
+export const addMealToSlot = async (
+  userId: string,
+  day: string,
+  mealType: MealType,
+  recipeId: string
+): Promise<MealPlan> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/meal-plan/${userId}/meal`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        day,
+        mealType,
+        recipeId,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to add meal to plan');
+    }
+
+    const data = await response.json();
+    return data.mealPlan;
+  } catch (error) {
+    console.error('Error adding meal to plan:', error);
+    throw error;
+  }
+};
+
+// Remove a meal from a specific slot in the meal plan
+export const removeMealFromSlot = async (
+  userId: string,
+  day: string,
+  mealType: MealType
+): Promise<MealPlan> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/meal-plan/${userId}/meal`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        day,
+        mealType,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to remove meal from plan');
+    }
+
+    const data = await response.json();
+    return data.mealPlan;
+  } catch (error) {
+    console.error('Error removing meal from plan:', error);
     throw error;
   }
 };

@@ -7,6 +7,9 @@
 import { Router, Request, Response } from 'express';
 import { DynamoDBService } from '../services/dynamodb.js';
 import { WebhookService } from '../services/webhooks.js';
+import { ShoppingListGenerator } from '../utils/ShoppingListGenerator.js';
+import type { MealPlanPreferences, MealPlan } from '../models/MealPlan.js';
+import type { Recipe } from '../models/Recipe.js';
 
 const router = Router();
 
@@ -26,6 +29,174 @@ function getWebhookService(): WebhookService {
   }
   return webhookService;
 }
+
+/**
+ * POST /api/meal-plan/generate
+ *
+ * Generate AI-powered meal plan from user preferences
+ * Requirements: 3.1, 3.2, 3.8, 10.1, 10.2, 12.1
+ */
+router.post('/meal-plan/generate', async (req: Request, res: Response) => {
+  try {
+    const { userId, preferences } = req.body;
+
+    // Validate required fields
+    if (!userId) {
+      return res.status(400).json({
+        error: 'ValidationError',
+        message: 'userId is required',
+        retryable: false,
+      });
+    }
+
+    if (!preferences) {
+      return res.status(400).json({
+        error: 'ValidationError',
+        message: 'preferences is required',
+        retryable: false,
+      });
+    }
+
+    // Validate preferences structure
+    const prefs = preferences as MealPlanPreferences;
+    if (!Array.isArray(prefs.allergies)) {
+      return res.status(400).json({
+        error: 'ValidationError',
+        message: 'preferences.allergies must be an array',
+        retryable: false,
+      });
+    }
+
+    if (typeof prefs.calorieGoal !== 'number') {
+      return res.status(400).json({
+        error: 'ValidationError',
+        message: 'preferences.calorieGoal must be a number',
+        retryable: false,
+      });
+    }
+
+    // Verify user exists
+    const user = await getDBService().getUser(userId);
+    if (!user) {
+      return res.status(404).json({
+        error: 'NotFoundError',
+        message: 'User not found',
+        retryable: false,
+      });
+    }
+
+    console.log(`Generating meal plan for user ${userId}`);
+
+    // Call WebhookService to generate meal plan
+    const aiResponse = await getWebhookService().generateMealPlan(prefs);
+
+    console.log('AI meal plan generated, fetching recipe details');
+
+    // Fetch recipe details for all recipe IDs in the plan
+    const recipeIds = new Set<string>();
+    for (const day of aiResponse.days) {
+      for (const meal of day.meals) {
+        if (meal.recipeId) {
+          recipeIds.add(meal.recipeId);
+        }
+      }
+    }
+
+    const recipes: Recipe[] = [];
+    for (const recipeId of recipeIds) {
+      try {
+        const recipe = await getDBService().getRecipe(recipeId);
+        if (recipe) {
+          recipes.push(recipe);
+        }
+      } catch (error) {
+        console.warn(`Failed to fetch recipe ${recipeId}:`, error);
+      }
+    }
+
+    console.log(`Fetched ${recipes.length} recipes, generating shopping list`);
+
+    // Build complete meal plan structure
+    const now = new Date().toISOString();
+    const mealPlan: MealPlan = {
+      preferences: prefs,
+      days: aiResponse.days,
+      totalWeeklyCost: aiResponse.totalWeeklyCost,
+      nutritionSummary: aiResponse.nutritionSummary,
+      shoppingList: { stores: [], totalCost: 0 }, // Will be generated next
+      notes: aiResponse.notes,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    // Generate shopping list using ShoppingListGenerator
+    mealPlan.shoppingList = ShoppingListGenerator.generateShoppingList(mealPlan, recipes);
+
+    // Calculate total weekly cost from shopping list
+    mealPlan.totalWeeklyCost = mealPlan.shoppingList.totalCost;
+
+    console.log('Shopping list generated, saving to DynamoDB');
+
+    // Save complete meal plan to DynamoDB user profile
+    await getDBService().updateUser(userId, {
+      mealPlan: {
+        preferences: prefs,
+        plan: mealPlan,
+        createdAt: now,
+        updatedAt: now,
+      },
+    } as any);
+
+    console.log('Meal plan saved successfully');
+
+    // Return meal plan with 201 status
+    return res.status(201).json({
+      message: 'Meal plan generated successfully',
+      mealPlan,
+    });
+  } catch (error) {
+    console.error('Generate meal plan error:', error);
+
+    // Handle specific error types
+    if (error instanceof Error) {
+      // OpenAI API errors
+      if (error.message.includes('timeout') || error.message.includes('timed out')) {
+        return res.status(503).json({
+          error: 'ServiceUnavailable',
+          message: 'AI service timed out. Please try again.',
+          retryable: true,
+        });
+      }
+
+      // Rate limit errors
+      if (error.message.includes('rate limit')) {
+        return res.status(503).json({
+          error: 'ServiceUnavailable',
+          message: 'AI service is currently busy. Please try again in a moment.',
+          retryable: true,
+        });
+      }
+
+      // Validation errors from AI response
+      if (error.message.includes('Invalid meal plan structure')) {
+        return res.status(500).json({
+          error: 'InternalError',
+          message: 'Failed to generate valid meal plan. Please try again.',
+          details: error.message,
+          retryable: true,
+        });
+      }
+    }
+
+    // Generic error
+    return res.status(500).json({
+      error: 'InternalError',
+      message: 'Failed to generate meal plan',
+      details: error instanceof Error ? error.message : 'Unknown error',
+      retryable: true,
+    });
+  }
+});
 
 /**
  * POST /api/meal-plan
@@ -68,7 +239,7 @@ router.post('/meal-plan', async (req: Request, res: Response) => {
           plan: mealPlan,
           createdAt: new Date().toISOString(),
         },
-      });
+      } as any);
     }
 
     return res.status(201).json({
@@ -90,37 +261,554 @@ router.post('/meal-plan', async (req: Request, res: Response) => {
 /**
  * GET /api/meal-plan/:userId
  *
- * Get the current meal plan for a user
+ * Retrieve user's current meal plan
+ * Requirements: 10.4, 12.2
  */
 router.get('/meal-plan/:userId', async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
 
+    // Validate userId parameter
     if (!userId) {
       return res.status(400).json({
-        error: 'Validation failed',
-        details: { userId: 'userId is required' },
+        error: 'ValidationError',
+        message: 'userId is required',
+        retryable: false,
       });
     }
 
+    // Fetch user from DynamoDB
     const user = await getDBService().getUser(userId);
 
     if (!user) {
       return res.status(404).json({
-        error: 'User not found',
+        error: 'NotFoundError',
+        message: 'User not found',
+        retryable: false,
       });
     }
 
-    const mealPlan = (user as any).mealPlan || null;
+    // Return mealPlan field from user profile (the plan property within mealPlan)
+    // Return null if no meal plan exists
+    const userMealPlan = (user as any).mealPlan;
+    const mealPlan = userMealPlan?.plan || null;
 
     return res.status(200).json({
       mealPlan,
     });
   } catch (error) {
     console.error('Get meal plan error:', error);
+
+    // Handle errors with appropriate status codes
     return res.status(500).json({
-      error: 'Failed to get meal plan',
-      message: error instanceof Error ? error.message : 'Unknown error',
+      error: 'InternalError',
+      message: 'Failed to retrieve meal plan',
+      details: error instanceof Error ? error.message : 'Unknown error',
+      retryable: true,
+    });
+  }
+});
+
+/**
+ * PUT /api/meal-plan/:userId
+ *
+ * Update user's meal plan
+ * Requirements: 10.3, 12.3
+ */
+router.put('/meal-plan/:userId', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const { mealPlan } = req.body;
+
+    // Validate userId parameter
+    if (!userId) {
+      return res.status(400).json({
+        error: 'ValidationError',
+        message: 'userId is required',
+        retryable: false,
+      });
+    }
+
+    // Validate request body
+    if (!mealPlan) {
+      return res.status(400).json({
+        error: 'ValidationError',
+        message: 'mealPlan is required',
+        retryable: false,
+      });
+    }
+
+    // Validate meal plan structure
+    if (!mealPlan.days || !Array.isArray(mealPlan.days)) {
+      return res.status(400).json({
+        error: 'ValidationError',
+        message: 'mealPlan.days must be an array',
+        retryable: false,
+      });
+    }
+
+    // Verify user exists
+    const user = await getDBService().getUser(userId);
+    if (!user) {
+      return res.status(404).json({
+        error: 'NotFoundError',
+        message: 'User not found',
+        retryable: false,
+      });
+    }
+
+    console.log(`Updating meal plan for user ${userId}`);
+
+    // Fetch recipe details for all recipe IDs in plan
+    const recipeIds = new Set<string>();
+    for (const day of mealPlan.days) {
+      if (!day.meals || !Array.isArray(day.meals)) {
+        continue;
+      }
+      for (const meal of day.meals) {
+        if (meal.recipeId) {
+          recipeIds.add(meal.recipeId);
+        }
+      }
+    }
+
+    const recipes: Recipe[] = [];
+    for (const recipeId of recipeIds) {
+      try {
+        const recipe = await getDBService().getRecipe(recipeId);
+        if (recipe) {
+          recipes.push(recipe);
+        }
+      } catch (error) {
+        console.warn(`Failed to fetch recipe ${recipeId}:`, error);
+      }
+    }
+
+    console.log(`Fetched ${recipes.length} recipes, regenerating shopping list`);
+
+    // Regenerate shopping list using ShoppingListGenerator
+    const shoppingList = ShoppingListGenerator.generateShoppingList(mealPlan, recipes);
+
+    // Recalculate total weekly cost
+    const totalWeeklyCost = shoppingList.totalCost;
+
+    // Update meal plan with new shopping list and cost
+    const updatedMealPlan: MealPlan = {
+      ...mealPlan,
+      shoppingList,
+      totalWeeklyCost,
+      updatedAt: new Date().toISOString(),
+    };
+
+    console.log('Shopping list regenerated, updating DynamoDB');
+
+    // Update user profile in DynamoDB
+    const userMealPlan = (user as any).mealPlan || {};
+    await getDBService().updateUser(userId, {
+      mealPlan: {
+        ...userMealPlan,
+        plan: updatedMealPlan,
+        updatedAt: updatedMealPlan.updatedAt,
+      },
+    } as any);
+
+    console.log('Meal plan updated successfully');
+
+    // Return updated meal plan with 200 status
+    return res.status(200).json({
+      message: 'Meal plan updated successfully',
+      mealPlan: updatedMealPlan,
+    });
+  } catch (error) {
+    console.error('Update meal plan error:', error);
+
+    // Handle errors with appropriate status codes
+    return res.status(500).json({
+      error: 'InternalError',
+      message: 'Failed to update meal plan',
+      details: error instanceof Error ? error.message : 'Unknown error',
+      retryable: true,
+    });
+  }
+});
+
+/**
+ * POST /api/meal-plan/:userId/meal
+ *
+ * Add a meal to specific slot in the meal plan
+ * Requirements: 5.3, 5.5, 5.6, 10.3, 12.5
+ */
+router.post('/meal-plan/:userId/meal', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const { day, mealType, recipeId } = req.body;
+
+    // Validate userId parameter
+    if (!userId) {
+      return res.status(400).json({
+        error: 'ValidationError',
+        message: 'userId is required',
+        retryable: false,
+      });
+    }
+
+    // Validate request body
+    if (!day) {
+      return res.status(400).json({
+        error: 'ValidationError',
+        message: 'day is required',
+        retryable: false,
+      });
+    }
+
+    if (!mealType) {
+      return res.status(400).json({
+        error: 'ValidationError',
+        message: 'mealType is required',
+        retryable: false,
+      });
+    }
+
+    if (!recipeId) {
+      return res.status(400).json({
+        error: 'ValidationError',
+        message: 'recipeId is required',
+        retryable: false,
+      });
+    }
+
+    // Validate mealType is valid
+    const validMealTypes = ['breakfast', 'lunch', 'dinner', 'snack'];
+    if (!validMealTypes.includes(mealType)) {
+      return res.status(400).json({
+        error: 'ValidationError',
+        message: `mealType must be one of: ${validMealTypes.join(', ')}`,
+        retryable: false,
+      });
+    }
+
+    // Validate day is valid
+    const validDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    if (!validDays.includes(day)) {
+      return res.status(400).json({
+        error: 'ValidationError',
+        message: `day must be one of: ${validDays.join(', ')}`,
+        retryable: false,
+      });
+    }
+
+    console.log(`Adding meal to plan for user ${userId}: ${day} ${mealType}`);
+
+    // Verify user exists
+    const user = await getDBService().getUser(userId);
+    if (!user) {
+      return res.status(404).json({
+        error: 'NotFoundError',
+        message: 'User not found',
+        retryable: false,
+      });
+    }
+
+    // Fetch current meal plan from DynamoDB
+    const userMealPlan = (user as any).mealPlan;
+    if (!userMealPlan || !userMealPlan.plan) {
+      return res.status(404).json({
+        error: 'NotFoundError',
+        message: 'No meal plan found for user',
+        retryable: false,
+      });
+    }
+
+    const currentPlan: MealPlan = userMealPlan.plan;
+
+    // Fetch recipe details for the new recipe
+    const recipe = await getDBService().getRecipe(recipeId);
+    if (!recipe) {
+      return res.status(404).json({
+        error: 'NotFoundError',
+        message: 'Recipe not found',
+        retryable: false,
+      });
+    }
+
+    console.log(`Recipe found: ${recipe.name}, adding to meal plan`);
+
+    // Find the day in the meal plan
+    const dayIndex = currentPlan.days.findIndex(d => d.day === day);
+    if (dayIndex === -1) {
+      return res.status(400).json({
+        error: 'ValidationError',
+        message: `Day ${day} not found in meal plan`,
+        retryable: false,
+      });
+    }
+
+    // Create new meal from recipe
+    const newMeal: any = {
+      mealType,
+      name: recipe.name,
+      description: recipe.description || '',
+      recipeId: recipe.recipeId,
+      estimatedCalories: 0, // Recipe model doesn't have calories field
+      estimatedCost: recipe.totalCost || 0,
+    };
+
+    // Add meal to specified slot in meal plan
+    // Find if there's already a meal in this slot
+    const mealIndex = currentPlan.days[dayIndex].meals.findIndex(m => m.mealType === mealType);
+
+    if (mealIndex !== -1) {
+      // Replace existing meal
+      currentPlan.days[dayIndex].meals[mealIndex] = newMeal;
+    } else {
+      // Add new meal
+      currentPlan.days[dayIndex].meals.push(newMeal);
+    }
+
+    console.log('Meal added, fetching all recipes for shopping list regeneration');
+
+    // Fetch all recipe details for shopping list regeneration
+    const recipeIds = new Set<string>();
+    for (const d of currentPlan.days) {
+      for (const meal of d.meals) {
+        if (meal.recipeId) {
+          recipeIds.add(meal.recipeId);
+        }
+      }
+    }
+
+    const recipes: Recipe[] = [];
+    for (const rid of recipeIds) {
+      try {
+        const r = await getDBService().getRecipe(rid);
+        if (r) {
+          recipes.push(r);
+        }
+      } catch (error) {
+        console.warn(`Failed to fetch recipe ${rid}:`, error);
+      }
+    }
+
+    console.log(`Fetched ${recipes.length} recipes, regenerating shopping list`);
+
+    // Regenerate shopping list
+    const shoppingList = ShoppingListGenerator.generateShoppingList(currentPlan, recipes);
+
+    // Recalculate total weekly cost
+    const totalWeeklyCost = shoppingList.totalCost;
+
+    // Update meal plan with new shopping list and cost
+    const updatedMealPlan: MealPlan = {
+      ...currentPlan,
+      shoppingList,
+      totalWeeklyCost,
+      updatedAt: new Date().toISOString(),
+    };
+
+    console.log('Shopping list regenerated, saving to DynamoDB');
+
+    // Save updated plan to DynamoDB
+    await getDBService().updateUser(userId, {
+      mealPlan: {
+        ...userMealPlan,
+        plan: updatedMealPlan,
+        updatedAt: updatedMealPlan.updatedAt,
+      },
+    } as any);
+
+    console.log('Meal added successfully');
+
+    // Return updated meal plan with 200 status
+    return res.status(200).json({
+      message: 'Meal added successfully',
+      mealPlan: updatedMealPlan,
+    });
+  } catch (error) {
+    console.error('Add meal error:', error);
+
+    // Handle errors with appropriate status codes
+    return res.status(500).json({
+      error: 'InternalError',
+      message: 'Failed to add meal to plan',
+      details: error instanceof Error ? error.message : 'Unknown error',
+      retryable: true,
+    });
+  }
+});
+
+/**
+ * DELETE /api/meal-plan/:userId/meal
+ *
+ * Remove a meal from specific slot in the meal plan
+ * Requirements: 6.3, 6.5, 6.6, 10.3, 12.4
+ */
+router.delete('/meal-plan/:userId/meal', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const { day, mealType } = req.body;
+
+    // Validate userId parameter
+    if (!userId) {
+      return res.status(400).json({
+        error: 'ValidationError',
+        message: 'userId is required',
+        retryable: false,
+      });
+    }
+
+    // Validate request body
+    if (!day) {
+      return res.status(400).json({
+        error: 'ValidationError',
+        message: 'day is required',
+        retryable: false,
+      });
+    }
+
+    if (!mealType) {
+      return res.status(400).json({
+        error: 'ValidationError',
+        message: 'mealType is required',
+        retryable: false,
+      });
+    }
+
+    // Validate mealType is valid
+    const validMealTypes = ['breakfast', 'lunch', 'dinner', 'snack'];
+    if (!validMealTypes.includes(mealType)) {
+      return res.status(400).json({
+        error: 'ValidationError',
+        message: `mealType must be one of: ${validMealTypes.join(', ')}`,
+        retryable: false,
+      });
+    }
+
+    // Validate day is valid
+    const validDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    if (!validDays.includes(day)) {
+      return res.status(400).json({
+        error: 'ValidationError',
+        message: `day must be one of: ${validDays.join(', ')}`,
+        retryable: false,
+      });
+    }
+
+    console.log(`Removing meal from plan for user ${userId}: ${day} ${mealType}`);
+
+    // Verify user exists
+    const user = await getDBService().getUser(userId);
+    if (!user) {
+      return res.status(404).json({
+        error: 'NotFoundError',
+        message: 'User not found',
+        retryable: false,
+      });
+    }
+
+    // Fetch current meal plan from DynamoDB
+    const userMealPlan = (user as any).mealPlan;
+    if (!userMealPlan || !userMealPlan.plan) {
+      return res.status(404).json({
+        error: 'NotFoundError',
+        message: 'No meal plan found for user',
+        retryable: false,
+      });
+    }
+
+    const currentPlan: MealPlan = userMealPlan.plan;
+
+    // Find the day in the meal plan
+    const dayIndex = currentPlan.days.findIndex(d => d.day === day);
+    if (dayIndex === -1) {
+      return res.status(400).json({
+        error: 'ValidationError',
+        message: `Day ${day} not found in meal plan`,
+        retryable: false,
+      });
+    }
+
+    // Find the meal to remove
+    const mealIndex = currentPlan.days[dayIndex].meals.findIndex(m => m.mealType === mealType);
+    if (mealIndex === -1) {
+      return res.status(404).json({
+        error: 'NotFoundError',
+        message: `No ${mealType} found for ${day}`,
+        retryable: false,
+      });
+    }
+
+    console.log(`Meal found, removing from plan`);
+
+    // Remove meal from specified slot
+    currentPlan.days[dayIndex].meals.splice(mealIndex, 1);
+
+    console.log('Meal removed, fetching all recipes for shopping list regeneration');
+
+    // Fetch all recipe details for shopping list regeneration
+    const recipeIds = new Set<string>();
+    for (const d of currentPlan.days) {
+      for (const meal of d.meals) {
+        if (meal.recipeId) {
+          recipeIds.add(meal.recipeId);
+        }
+      }
+    }
+
+    const recipes: Recipe[] = [];
+    for (const rid of recipeIds) {
+      try {
+        const r = await getDBService().getRecipe(rid);
+        if (r) {
+          recipes.push(r);
+        }
+      } catch (error) {
+        console.warn(`Failed to fetch recipe ${rid}:`, error);
+      }
+    }
+
+    console.log(`Fetched ${recipes.length} recipes, regenerating shopping list`);
+
+    // Regenerate shopping list (excluding ingredients only in removed meal)
+    const shoppingList = ShoppingListGenerator.generateShoppingList(currentPlan, recipes);
+
+    // Recalculate total weekly cost
+    const totalWeeklyCost = shoppingList.totalCost;
+
+    // Update meal plan with new shopping list and cost
+    const updatedMealPlan: MealPlan = {
+      ...currentPlan,
+      shoppingList,
+      totalWeeklyCost,
+      updatedAt: new Date().toISOString(),
+    };
+
+    console.log('Shopping list regenerated, saving to DynamoDB');
+
+    // Save updated plan to DynamoDB
+    await getDBService().updateUser(userId, {
+      mealPlan: {
+        ...userMealPlan,
+        plan: updatedMealPlan,
+        updatedAt: updatedMealPlan.updatedAt,
+      },
+    } as any);
+
+    console.log('Meal removed successfully');
+
+    // Return updated meal plan with 200 status
+    return res.status(200).json({
+      message: 'Meal removed successfully',
+      mealPlan: updatedMealPlan,
+    });
+  } catch (error) {
+    console.error('Remove meal error:', error);
+
+    // Handle errors with appropriate status codes
+    return res.status(500).json({
+      error: 'InternalError',
+      message: 'Failed to remove meal from plan',
+      details: error instanceof Error ? error.message : 'Unknown error',
+      retryable: true,
     });
   }
 });

@@ -7,3 +7,4 @@ export * from './SavingsPlan';
 export * from './Event';
 export * from './Recipe';
 export * from './FuelStation';
+export * from './MealPlan';
