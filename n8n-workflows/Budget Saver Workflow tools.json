@@ -1,0 +1,487 @@
+{
+  "name": "Budget Saver Workflow tools copy",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "7b93b479-edf0-45d5-ae65-337f9a65e834",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -32,
+        -336
+      ],
+      "id": "500f91a3-5ebc-4861-9da6-33102cc9428f",
+      "name": "Webhook",
+      "webhookId": "7b93b479-edf0-45d5-ae65-337f9a65e834"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        432,
+        -336
+      ],
+      "id": "75839009-6137-4079-bb0b-51c2ebab8c9e",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.body.income }} \n{{ $json.body.incomeFrequency }}\n{{ $json.body.location }} \n{{ $json.body.postcode }}\n{{ $json.body.recurringExpenses.toJsonString() }} \n{{ $json.body.message }}\n",
+        "options": {
+          "systemMessage": "You are a budget manager and financial assistant. You assign the input you're given to the appropriate sub agent depending on the content of that input. \n\nThese agents include:\n- Grocery Agent: for queries regarding food prices and grocery savings.\n- Bills Agent: for queries regarding household bills like water, gas, energy, internet, rent, etc.\n- Fuel Agent: for queries regarding fuel prices and optimization.\n- Financial Planner Agent: for queries regard overall budgeting.\n\nDon't assume anything, if you are unsure ask for clarification. Try to keep the resulting output neat and concise."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        128,
+        -336
+      ],
+      "id": "89f25b9e-b114-4781-8d87-e256237f2a93",
+      "name": "Manager Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -1040,
+        -144
+      ],
+      "id": "4b974048-3d7c-4515-a61d-342df6e5101a",
+      "name": "OpenAI Chat Model5",
+      "credentials": {
+        "openAiApi": {
+          "id": "thcwpauravahalLi",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.body.recurringExpenses[1].values() }}\n{{ $json.body.location }}\n{{ $json.body.postcode }}\n{{ $json.body.message }}",
+        "options": {
+          "systemMessage": "You are a grocery assistant, providing advice to a university student regarding their grocery expenses.\n\nYou should factor in any any restrictions that customer may provide which can included:\n- dietary requirements (e.g. no beef, A2 milk only, I'm a Vegan, etc)\n- users relative location\n- food preferences\n\nDon't assume anything, if you are unsure ask for clarification. Try to keep the resulting output concise. Your prices MUST be in AUD."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 3,
+      "position": [
+        -256,
+        0
+      ],
+      "id": "f2658d61-0b30-4e96-b28d-6c9e7a0d4c58",
+      "name": "Grocery Agent Tool"
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.body.recurringExpenses.toJsonString() }}\n{{ $json.body.location }}\n{{ $json.body.postcode }}\n{{ $json.body.message }}",
+        "options": {
+          "systemMessage": "You are a bill budgeting assistant, helping a university student maximize their savings on their household bill expenses, and providing advice based on available data. \n\nThese can include but aren't limited to:\n- Water\n- Energy\n- Gas\n- Internet\n\nDon't assume anything, if you are unsure ask for clarification. Try to keep the resulting output concise. Your prices MUST be in AUD."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 3,
+      "position": [
+        32,
+        0
+      ],
+      "id": "7ec7bc2a-819b-4c0c-9ef8-ff8271a824fd",
+      "name": "Bills Agent Tool"
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.body.recurringExpenses }}\n{{ $json.body.location }}\n{{ $json.body.postcode }}\n{{ $json.body.message }}",
+        "options": {
+          "systemMessage": "You are a fuel planner. Your role is to provide recommendations on how to get the optimal fuel prices.\n\nDon't assume anything, if you are unsure ask for clarification. Try to keep the resulting output concise. Your prices MUST be in AUD."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 3,
+      "position": [
+        320,
+        0
+      ],
+      "id": "954d6e13-5b7e-4fdc-9fff-321ad3792766",
+      "name": "Fuel Agent Tool"
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.body.recurringExpenses.toJsonString() }}\n{{ $json.body.location }}\n{{ $json.body.postcode }}\n{{ $json.body.message }}",
+        "options": {
+          "systemMessage": "You are a financial planner, focused towards helping a low earning university student save on their expenses. \n\nFactors for the students budget can include, but isn’t limited to:\n1. Groceries\n2. Bills (Water, Energy, Gas, Internet)\n3. Transport costs, petrol\n4. Health Insurance and Medical Bills\n\nYour goal is to maximise the student's savings within any restrictions the student may provide, and suggest a monthly budget plan for them to follow. Your suggestions should be based on the most recent data relative to now: {{$today}}\n\nThe budget plan needs to be on a monthly basis and MUST be given in an ordered list showing the difference of the old and new values (Name: new value | old value).\n\n<example>\n- Income: 1400\n- Groceries: 350 | 600\n- Water: 190 | 250\n- Gas: 130 | 140\n- Energy: 120 | 140\n- Internet: 64 | 80\n\nMonthly savings: 546 | 190\n</example>\n\nDon't assume anything, if you are unsure ask for clarification. Try to keep the budget plan concise.  Budget dollar values MUST be in AUD.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 3,
+      "position": [
+        592,
+        0
+      ],
+      "id": "1ab2da42-200d-40c6-99cd-9b1f0d28f193",
+      "name": "Finanical Planner Agent Tool"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        64,
+        -176
+      ],
+      "id": "2b1403cf-de09-43fa-b37c-aa4e4101d5ae",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "RExmxN0lQuooOLpz",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -256,
+        160
+      ],
+      "id": "846336a1-f4b7-41b9-a519-bc49437c95b2",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "LigVpqYsXWkH34lR",
+          "name": "Google Gemini(PaLM) Api account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        32,
+        144
+      ],
+      "id": "5a7a25d1-0f25-42c2-8a10-9aaeade267a2",
+      "name": "Google Gemini Chat Model2",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "LigVpqYsXWkH34lR",
+          "name": "Google Gemini(PaLM) Api account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        320,
+        144
+      ],
+      "id": "ed2e6ba6-3c7e-4ce8-9dfc-702ea60a4b18",
+      "name": "Google Gemini Chat Model3",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "QFBvneDV5PtBlSZ2",
+          "name": "Google Gemini(PaLM) Api account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        592,
+        144
+      ],
+      "id": "b6e73ad7-c6f7-487f-be7f-29182245f2c7",
+      "name": "Google Gemini Chat Model4",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "QFBvneDV5PtBlSZ2",
+          "name": "Google Gemini(PaLM) Api account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "endpointUrl": "https://coles-mcp.dev.genwizardsd.com/mcp",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.2,
+      "position": [
+        -112,
+        176
+      ],
+      "id": "a77fccda-9906-4c2a-b416-af10f6a1cf07",
+      "name": "Coles MCP"
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "henrykb.app.n8n.cloud",
+            "user-agent": "node",
+            "content-length": "68",
+            "accept": "*/*",
+            "accept-encoding": "gzip, br",
+            "accept-language": "*",
+            "cdn-loop": "cloudflare; loops=1; subreqs=1",
+            "cf-connecting-ip": "13.239.133.63",
+            "cf-ew-via": "15",
+            "cf-ipcountry": "AU",
+            "cf-ray": "9cc14671830d268c-SYD",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "cf-worker": "n8n.cloud",
+            "content-type": "application/json",
+            "sec-fetch-mode": "cors",
+            "x-forwarded-for": "13.239.133.63, 108.162.249.95",
+            "x-forwarded-host": "henrykb.app.n8n.cloud",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "traefik-prod-users-gwc-1-7b58f7489d-m5cpm",
+            "x-is-trusted": "yes",
+            "x-real-ip": "13.239.133.63"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "userId": "test-sarah-123",
+            "createdAt": "2026-02-12T00:15:02.711Z",
+            "email": "sarah@test.com",
+            "income": 1200,
+            "incomeFrequency": "monthly",
+            "location": "Parramatta",
+            "name": "Sarah Test",
+            "postcode": "2150",
+            "recurringExpenses": [
+              {
+                "amount": 150,
+                "frequency": "weekly",
+                "isFixed": true,
+                "name": "Rent"
+              },
+              {
+                "amount": 80,
+                "frequency": "weekly",
+                "isFixed": false,
+                "name": "Groceries"
+              },
+              {
+                "amount": 50,
+                "frequency": "monthly",
+                "isFixed": true,
+                "name": "Phone Bill"
+              },
+              {
+                "amount": 60,
+                "frequency": "monthly",
+                "isFixed": true,
+                "name": "Internet"
+              },
+              {
+                "amount": 40,
+                "frequency": "weekly",
+                "isFixed": false,
+                "name": "Fuel"
+              }
+            ],
+            "savings": 500,
+            "message": "I want to save 20% on my recurring expenses. Make a budget for that."
+          },
+          "webhookUrl": "https://henrykb.app.n8n.cloud/webhook/02e3f00d-8a1f-4dfa-b772-eef5e1f68b08",
+          "executionMode": "production"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Manager Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manager Agent": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook": {
+      "main": [
+        []
+      ]
+    },
+    "OpenAI Chat Model5": {
+      "ai_languageModel": [
+        []
+      ]
+    },
+    "Grocery Agent Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "Manager Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bills Agent Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "Manager Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fuel Agent Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "Manager Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finanical Planner Agent Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "Manager Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Manager Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Grocery Agent Tool",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Bills Agent Tool",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model3": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Fuel Agent Tool",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model4": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Finanical Planner Agent Tool",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Coles MCP": {
+      "ai_tool": [
+        [
+          {
+            "node": "Grocery Agent Tool",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "a2ff1627-31da-4286-947c-bb50b47ea352",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d6b9af4201f297e72cfc0e57f5b9b4ff702cd3dab7f10ff132e662eebd02a7af"
+  },
+  "id": "ivMUUTRSqJAhVECI",
+  "tags": []
+}
