@@ -58,8 +58,8 @@ export default function Login() {
           localStorage.setItem('savesmart_user', JSON.stringify(localUserData));
           localStorage.setItem('savesmart_authenticated', 'true');
 
-          // Redirect to chat (existing users skip onboarding)
-          router.push('/chat');
+          // Redirect to dashboard (existing users skip onboarding)
+          router.push('/dashboard');
         } else {
           setLoginError("Invalid email or password");
         }
@@ -107,7 +107,7 @@ export default function Login() {
             <h1 className="text-2xl font-bold text-gray-900 mb-2">
               Welcome back!
             </h1>
-            <p className="text-gray-600">
+            <p className="text-gray-900">
               Sign in to your SaveSmart account
             </p>
           </div>

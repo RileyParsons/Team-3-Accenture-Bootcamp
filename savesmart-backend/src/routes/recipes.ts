@@ -128,7 +128,7 @@ router.get('/recipes', async (req: Request, res: Response) => {
       });
     } catch (dbError) {
       // If DynamoDB table doesn't exist, fall back to mock data
-      console.log('DynamoDB table not found, using mock recipes data');
+      console.log('DynamoDB error, using mock recipes data:', dbError);
 
       const mockRecipes: Recipe[] = [
         {

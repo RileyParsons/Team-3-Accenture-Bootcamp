@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { PiggyBank, ChevronRight, ShoppingCart, DollarSign, Calendar, Check } from "lucide-react";
-import Link from "next/link";
+import { ChevronRight, ShoppingCart, DollarSign, Calendar, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 interface MealPlanItem {
@@ -147,33 +146,17 @@ export default function MealPlan() {
             userData.mealPreferences = preferences;
             localStorage.setItem('savesmart_user', JSON.stringify(userData));
         }
-        router.push('/chat');
+        router.push('/dashboard');
     };
 
     if (step === 'plan') {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50">
-                {/* Header */}
-                <nav className="px-6 py-4 bg-white shadow-sm">
-                    <div className="flex items-center justify-between max-w-6xl mx-auto">
-                        <div className="flex items-center space-x-2">
-                            <PiggyBank className="h-8 w-8 text-green-600" />
-                            <span className="text-xl font-bold text-gray-900">SaveSmart</span>
-                        </div>
-                        <button
-                            onClick={() => setStep('preferences')}
-                            className="text-green-600 hover:text-green-700 font-medium"
-                        >
-                            ← Back to Preferences
-                        </button>
-                    </div>
-                </nav>
-
+            <div className="min-h-screen bg-gray-50">
                 <main className="max-w-6xl mx-auto px-6 py-8">
                     {/* Summary Header */}
                     <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
                         <h1 className="text-3xl font-bold text-gray-900 mb-2">Your Weekly Meal Plan</h1>
-                        <p className="text-gray-600 mb-4">
+                        <p className="text-gray-900 mb-4">
                             Based on your preferences: {preferences.calorieGoal} calories/day
                             {preferences.allergies.length > 0 && `, avoiding ${preferences.allergies.join(', ')}`}
                         </p>
@@ -184,7 +167,7 @@ export default function MealPlan() {
                                     <span className="font-semibold text-gray-900">Total Cost</span>
                                 </div>
                                 <p className="text-2xl font-bold text-green-600">${totalCost.toFixed(2)}</p>
-                                <p className="text-sm text-gray-600">for the week</p>
+                                <p className="text-sm text-gray-900">for the week</p>
                             </div>
                             <div className="bg-blue-50 p-4 rounded-lg">
                                 <div className="flex items-center space-x-2 mb-2">
@@ -192,7 +175,7 @@ export default function MealPlan() {
                                     <span className="font-semibold text-gray-900">Meals Planned</span>
                                 </div>
                                 <p className="text-2xl font-bold text-blue-600">28</p>
-                                <p className="text-sm text-gray-600">7 days × 4 meals</p>
+                                <p className="text-sm text-gray-900">7 days × 4 meals</p>
                             </div>
                             <div className="bg-purple-50 p-4 rounded-lg">
                                 <div className="flex items-center space-x-2 mb-2">
@@ -200,7 +183,7 @@ export default function MealPlan() {
                                     <span className="font-semibold text-gray-900">Stores</span>
                                 </div>
                                 <p className="text-2xl font-bold text-purple-600">{shoppingList.length}</p>
-                                <p className="text-sm text-gray-600">Woolworths, Coles, Aldi</p>
+                                <p className="text-sm text-gray-900">Woolworths, Coles, Aldi</p>
                             </div>
                         </div>
                     </div>
@@ -217,10 +200,10 @@ export default function MealPlan() {
                                     <div key={index} className="border-l-4 border-green-500 pl-4 py-2">
                                         <h3 className="font-bold text-lg text-gray-900 mb-2">{day.day}</h3>
                                         <div className="space-y-1 text-sm">
-                                            <p><span className="font-semibold text-gray-700">Breakfast:</span> {day.breakfast}</p>
-                                            <p><span className="font-semibold text-gray-700">Lunch:</span> {day.lunch}</p>
-                                            <p><span className="font-semibold text-gray-700">Dinner:</span> {day.dinner}</p>
-                                            <p><span className="font-semibold text-gray-700">Snack:</span> {day.snack}</p>
+                                            <p className="text-gray-900"><span className="font-semibold text-gray-900">Breakfast:</span> {day.breakfast}</p>
+                                            <p className="text-gray-900"><span className="font-semibold text-gray-900">Lunch:</span> {day.lunch}</p>
+                                            <p className="text-gray-900"><span className="font-semibold text-gray-900">Dinner:</span> {day.dinner}</p>
+                                            <p className="text-gray-900"><span className="font-semibold text-gray-900">Snack:</span> {day.snack}</p>
                                         </div>
                                     </div>
                                 ))}
@@ -247,10 +230,10 @@ export default function MealPlan() {
                                                 <div key={itemIndex} className="flex items-center justify-between text-sm">
                                                     <div className="flex items-center space-x-2">
                                                         <Check className="h-4 w-4 text-gray-400" />
-                                                        <span className="text-gray-700">{item.name}</span>
+                                                        <span className="text-gray-900">{item.name}</span>
                                                     </div>
                                                     <div className="flex items-center space-x-3">
-                                                        <span className="text-gray-500">{item.quantity}</span>
+                                                        <span className="text-gray-900">{item.quantity}</span>
                                                         <span className="font-semibold text-gray-900">${item.price.toFixed(2)}</span>
                                                     </div>
                                                 </div>
@@ -260,13 +243,12 @@ export default function MealPlan() {
                                 ))}
                             </div>
 
-                            {/* Total */}
-                            <div className="mt-6 pt-4 border-t-2 border-gray-200">
+                                <div className="mt-6 pt-4 border-t-2 border-gray-200">
                                 <div className="flex items-center justify-between">
                                     <span className="text-xl font-bold text-gray-900">Weekly Total</span>
                                     <span className="text-2xl font-bold text-green-600">${totalCost.toFixed(2)}</span>
                                 </div>
-                                <p className="text-sm text-gray-600 mt-1">
+                                <p className="text-sm text-gray-900 mt-1">
                                     Average ${(totalCost / 7).toFixed(2)} per day
                                 </p>
                             </div>
@@ -279,7 +261,7 @@ export default function MealPlan() {
                             onClick={handleContinueToChat}
                             className="px-8 py-4 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center space-x-2 text-lg"
                         >
-                            <span>Continue to AI Chat</span>
+                            <span>Continue to Dashboard</span>
                             <ChevronRight className="h-5 w-5" />
                         </button>
                     </div>
@@ -289,27 +271,14 @@ export default function MealPlan() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50">
-            {/* Header */}
-            <nav className="px-6 py-4 bg-white shadow-sm">
-                <div className="flex items-center justify-between max-w-4xl mx-auto">
-                    <div className="flex items-center space-x-2">
-                        <PiggyBank className="h-8 w-8 text-green-600" />
-                        <span className="text-xl font-bold text-gray-900">SaveSmart</span>
-                    </div>
-                    <Link href="/chat" className="text-green-600 hover:text-green-700 font-medium">
-                        Skip to Chat →
-                    </Link>
-                </div>
-            </nav>
-
+        <div className="min-h-screen bg-gray-50">
             <main className="max-w-2xl mx-auto px-6 py-12">
                 <div className="bg-white rounded-xl shadow-lg p-8">
                     <div className="text-center mb-8">
                         <h1 className="text-3xl font-bold text-gray-900 mb-2">
                             Let's Plan Your Meals
                         </h1>
-                        <p className="text-gray-600">
+                        <p className="text-gray-900">
                             Tell us your dietary preferences and we'll create a personalized weekly meal plan
                         </p>
                     </div>
@@ -317,7 +286,7 @@ export default function MealPlan() {
                     <div className="space-y-6">
                         {/* Allergies */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-3">
+                            <label className="block text-sm font-medium text-gray-900 mb-3">
                                 Do you have any food allergies or intolerances?
                             </label>
                             <div className="grid grid-cols-2 gap-3">
@@ -325,7 +294,7 @@ export default function MealPlan() {
                                     <button
                                         key={allergy}
                                         onClick={() => handleAllergyToggle(allergy)}
-                                        className={`p-3 rounded-lg border-2 transition-colors ${preferences.allergies.includes(allergy)
+                                        className={`p-3 rounded-lg border-2 transition-colors text-gray-900 font-medium ${preferences.allergies.includes(allergy)
                                                 ? 'border-green-500 bg-green-50 text-green-700'
                                                 : 'border-gray-200 hover:border-green-300'
                                             }`}
@@ -338,13 +307,13 @@ export default function MealPlan() {
 
                         {/* Calorie Goal */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="block text-sm font-medium text-gray-900 mb-2">
                                 Daily Calorie Goal
                             </label>
                             <select
                                 value={preferences.calorieGoal}
                                 onChange={(e) => setPreferences(prev => ({ ...prev, calorieGoal: e.target.value }))}
-                                className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none"
+                                className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none text-gray-900"
                             >
                                 <option value="1500">1500 calories (Weight loss)</option>
                                 <option value="2000">2000 calories (Maintenance)</option>
@@ -355,13 +324,13 @@ export default function MealPlan() {
 
                         {/* Cultural Preference */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="block text-sm font-medium text-gray-900 mb-2">
                                 Cultural or Regional Preference
                             </label>
                             <select
                                 value={preferences.culturalPreference}
                                 onChange={(e) => setPreferences(prev => ({ ...prev, culturalPreference: e.target.value }))}
-                                className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none"
+                                className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none text-gray-900"
                             >
                                 <option value="">No preference</option>
                                 <option value="mediterranean">Mediterranean</option>
@@ -375,13 +344,13 @@ export default function MealPlan() {
 
                         {/* Diet Type */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="block text-sm font-medium text-gray-900 mb-2">
                                 Diet Type
                             </label>
                             <select
                                 value={preferences.dietType}
                                 onChange={(e) => setPreferences(prev => ({ ...prev, dietType: e.target.value }))}
-                                className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none"
+                                className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none text-gray-900"
                             >
                                 <option value="">No restriction</option>
                                 <option value="vegetarian">Vegetarian</option>

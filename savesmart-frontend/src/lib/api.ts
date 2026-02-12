@@ -647,3 +647,72 @@ export const deleteTransaction = async (transactionId: string): Promise<void> =>
     throw error;
   }
 };
+
+// Meal Plan interfaces
+export interface MealPlanDay {
+  day: string;
+  recipeId: string;
+  recipeName: string;
+  mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+}
+
+export interface MealPlan {
+  weekStartDate: string;
+  days: MealPlanDay[];
+  totalWeeklyCost: number;
+  createdAt?: string;
+}
+
+// Create a meal plan from selected recipes
+export const createMealPlan = async (
+  userId: string,
+  recipeIds: string[],
+  weekStartDate?: string
+): Promise<MealPlan> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/meal-plan`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        userId,
+        recipeIds,
+        weekStartDate,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to create meal plan');
+    }
+
+    const data = await response.json();
+    return data.mealPlan;
+  } catch (error) {
+    console.error('Error creating meal plan:', error);
+    throw error;
+  }
+};
+
+// Get user's current meal plan
+export const getMealPlan = async (userId: string): Promise<MealPlan | null> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/meal-plan/${userId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch meal plan');
+    }
+
+    const data = await response.json();
+    return data.mealPlan;
+  } catch (error) {
+    console.error('Error fetching meal plan:', error);
+    throw error;
+  }
+};

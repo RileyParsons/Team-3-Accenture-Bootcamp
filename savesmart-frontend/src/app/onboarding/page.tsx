@@ -185,8 +185,8 @@ export default function Onboarding() {
         console.log('Mock mode: Profile saved to localStorage only');
       }
 
-      // Navigate to meal plan page
-      router.push('/meal-plan');
+      // Navigate to dashboard page
+      router.push('/dashboard');
     } catch (err) {
       console.error('Error saving profile:', err);
       setError(err instanceof Error ? err.message : 'Failed to save profile');
