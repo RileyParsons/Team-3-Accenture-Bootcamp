@@ -4,7 +4,7 @@ import { useState } from "react";
 import { PiggyBank, Eye, EyeOff, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { saveUser, generateUserId } from "@/lib/api";
+import { registerUser, generateUserId } from "@/lib/api";
 
 export default function Signup() {
   const router = useRouter();
@@ -63,26 +63,24 @@ export default function Signup() {
       setIsLoading(true);
 
       try {
-        // Generate unique user ID
-        const userId = generateUserId();
+        // Register user with password
+        const result = await registerUser(
+          formData.email,
+          formData.password,
+          `${formData.firstName} ${formData.lastName}`
+        );
 
-        // Prepare user data for API
-        const userData = {
-          userId,
-          email: formData.email,
-          name: `${formData.firstName} ${formData.lastName}`,
-        };
-
-        // Save user to backend
-        await saveUser(userData);
+        if (!result || !result.userId) {
+          throw new Error('Failed to create account');
+        }
 
         // Store user data in localStorage for session management
         const localUserData = {
-          userId,
+          userId: result.userId,
           email: formData.email,
           firstName: formData.firstName,
           lastName: formData.lastName,
-          name: userData.name,
+          name: `${formData.firstName} ${formData.lastName}`,
           createdAt: new Date().toISOString()
         };
 
@@ -91,9 +89,10 @@ export default function Signup() {
 
         // Redirect to onboarding
         router.push('/onboarding');
-      } catch (error) {
+      } catch (error: any) {
         console.error('Signup error:', error);
-        setErrors({ submit: 'Failed to create account. Please try again.' });
+        const errorMessage = error?.message || 'Failed to create account. Please try again.';
+        setErrors({ submit: errorMessage });
       } finally {
         setIsLoading(false);
       }
