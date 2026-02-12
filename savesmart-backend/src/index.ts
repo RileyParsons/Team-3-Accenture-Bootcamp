@@ -4,6 +4,7 @@ import { getConfig } from './config/env.js';
 import { testConnection, validateTables } from './config/aws.js';
 import { corsMiddleware } from './middleware/cors.js';
 import { loggerMiddleware } from './middleware/logger.js';
+import { errorHandler } from './middleware/errorHandler.js';
 
 // Load environment variables first
 dotenv.config();
@@ -19,6 +20,9 @@ app.use(express.json());
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'SaveSmart backend is running' });
 });
+
+// Global error handler (must be last)
+app.use(errorHandler);
 
 /**
  * Initialize the application
