@@ -155,38 +155,28 @@ export const registerUser = async (
     }
 };
 
-// Login user (verifies password by fetching user and comparing hash)
+// Login user (authenticates via backend login endpoint)
 export const loginUser = async (
     email: string,
     password: string
 ): Promise<UserData | null> => {
     try {
-        // First, we need to get userId from email
-        // Since we don't have an email lookup endpoint, we'll use localStorage
-        const storedUser = localStorage.getItem('savesmart_user');
-        if (!storedUser) {
-            throw new Error('No account found');
+        // Call backend login endpoint
+        const response = await fetch(`${API_BASE_URL}/auth/login`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email, password }),
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Invalid credentials');
         }
 
-        const localUserData = JSON.parse(storedUser);
-        if (localUserData.email !== email) {
-            throw new Error('Invalid credentials');
-        }
-
-        // Get user from backend
-        const userData = await getUser(localUserData.userId);
-
-        if (!userData) {
-            throw new Error('User not found');
-        }
-
-        // Verify password
-        const hashedPassword = await hashPassword(password);
-        if (userData.hashedPassword !== hashedPassword) {
-            throw new Error('Invalid credentials');
-        }
-
-        return userData;
+        const userData = await response.json();
+        return userData as UserData;
     } catch (error) {
         console.error('Login error:', error);
         throw error;
