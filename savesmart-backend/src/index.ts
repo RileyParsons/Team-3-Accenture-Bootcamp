@@ -5,6 +5,10 @@ import { testConnection, validateTables } from './config/aws.js';
 import { corsMiddleware } from './middleware/cors.js';
 import { loggerMiddleware } from './middleware/logger.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import chatRoutes from './routes/chat.js';
+import profileRoutes from './routes/profile.js';
+import recipeRoutes from './routes/recipes.js';
+import eventsRoutes from './routes/events.js';
 
 // Load environment variables first
 dotenv.config();
@@ -20,6 +24,12 @@ app.use(express.json());
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'SaveSmart backend is running' });
 });
+
+// API Routes
+app.use('/api', chatRoutes);
+app.use('/api', profileRoutes);
+app.use('/api', recipeRoutes);
+app.use('/api', eventsRoutes);
 
 // Global error handler (must be last)
 app.use(errorHandler);

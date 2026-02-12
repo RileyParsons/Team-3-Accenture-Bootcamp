@@ -110,7 +110,7 @@ This implementation plan transitions SaveSmart from AWS Lambda/API Gateway to a 
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 6. Implement chat API endpoints
-  - [ ] 6.1 Create chat routes with context-aware messaging
+  - [x] 6.1 Create chat routes with context-aware messaging
     - Create routes/chat.ts with POST /api/chat endpoint
     - Extract minimal context from request (pageType, dataId, dataName)
     - Forward message to Chat_Agent webhook
@@ -124,7 +124,7 @@ This implementation plan transitions SaveSmart from AWS Lambda/API Gateway to a 
     - **Validates: Requirements 4.3, 4.4, 4.10**
 
 - [ ] 7. Implement profile management API
-  - [ ] 7.1 Create profile routes for CRUD operations
+  - [x] 7.1 Create profile routes for CRUD operations
     - Create routes/profile.ts with GET /api/profile/:userId
     - Implement PUT /api/profile/:userId with validation
     - Validate name, email, location, savingsGoal fields
@@ -168,7 +168,7 @@ This implementation plan transitions SaveSmart from AWS Lambda/API Gateway to a 
     - Add fallback to mock data on API failure
     - _Requirements: 8.3, 8.4, 14.5_
 
-  - [ ] 9.2 Create events routes with location filtering
+  - [x] 9.2 Create events routes with location filtering
     - Create routes/events.ts with GET /api/events
     - Support suburb and postcode query parameters
     - Integrate with EventbriteService and cache
@@ -220,7 +220,7 @@ This implementation plan transitions SaveSmart from AWS Lambda/API Gateway to a 
     - Add fallback to mock data on API failure
     - _Requirements: 10.6, 10.7, 14.5_
 
-  - [ ] 12.2 Create recipe routes with dietary filtering
+  - [-] 12.2 Create recipe routes with dietary filtering
     - Create routes/recipes.ts with GET /api/recipes
     - Implement GET /api/recipes/:recipeId
     - Support dietaryTags query parameter
