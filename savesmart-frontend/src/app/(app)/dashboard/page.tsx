@@ -612,10 +612,10 @@ export default function DashboardPage() {
                     const expensesTrend = calculateTrend(processedData.map(d => d.expenses));
                     const savingsTrend = calculateTrend(processedData.map(d => d.savings));
 
-                    // Create 6 projection points (extend further into future)
+                    // Create 18 projection points (4.5 months of weekly projections)
                     const lastIndex = processedData.length - 1;
                     const projections = [];
-                    for (let i = 1; i <= 6; i++) {
+                    for (let i = 1; i <= 18; i++) {
                       const futureIndex = lastIndex + i;
                       const futureDate = new Date(processedData[lastIndex].date);
                       futureDate.setDate(futureDate.getDate() + (i * 7)); // Weekly projections
