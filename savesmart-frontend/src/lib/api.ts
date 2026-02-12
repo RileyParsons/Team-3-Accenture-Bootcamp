@@ -217,3 +217,72 @@ export const generateUserId = (): string => {
         .toString(36)
         .substring(2, 11)}`;
 };
+
+// Chat API interfaces
+export interface ChatMessage {
+    role: 'user' | 'assistant';
+    content: string;
+    timestamp?: string;
+}
+
+export interface ChatRequest {
+    userId: string;
+    message: string;
+    conversationHistory?: ChatMessage[];
+}
+
+export interface ChatResponse {
+    reply: string;
+    savings?: number;
+    plan?: any;
+    conversationId?: string;
+}
+
+// Send chat message to AI agent
+export const sendChatMessage = async (
+    userId: string,
+    message: string,
+    conversationHistory?: ChatMessage[]
+): Promise<ChatResponse | null> => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/chat`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                userId,
+                message,
+                conversationHistory: conversationHistory || []
+            }),
+        });
+
+        let data: any = null;
+
+        // Safely parse JSON if present
+        const contentType = response.headers.get('content-type');
+        if (contentType?.includes('application/json')) {
+            data = await response.json();
+        }
+
+        if (!response.ok) {
+            throw new Error(
+                data?.error || data?.message || 'Failed to send message'
+            );
+        }
+
+        // Handle Lambda proxy response format
+        if (data && data.body && typeof data.body === 'string') {
+            try {
+                data = JSON.parse(data.body);
+            } catch (e) {
+                console.error('Failed to parse response body:', e);
+            }
+        }
+
+        return data;
+    } catch (error) {
+        console.error('Error sending chat message:', error);
+        throw error;
+    }
+};
