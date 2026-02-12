@@ -94,8 +94,8 @@ export default function Onboarding() {
         throw new Error('User not found. Please sign up first.');
       }
 
-      // Generate userId from email
-      const userId = userData.email.replace('@', '-').replace(/\./g, '-');
+      // Use the userId that was generated during signup
+      const userId = userData.userId;
 
       // Convert frequencies to monthly amounts
       const getMonthlyAmount = (amount: number, frequency: 'weekly' | 'fortnightly' | 'monthly') => {
@@ -149,6 +149,7 @@ export default function Onboarding() {
         userId: userId,
         email: userData.email,
         name: profile.name.trim() || `${userData.firstName} ${userData.lastName}`,
+        hashedPassword: userData.hashedPassword, // Include password hash from signup
         income: Math.round(monthlyIncome),
         incomeFrequency: profile.incomeFrequency,
         savings: profile.currentSavings,
@@ -184,8 +185,8 @@ export default function Onboarding() {
         console.log('Mock mode: Profile saved to localStorage only');
       }
 
-      // Navigate to meal plan page
-      router.push('/meal-plan');
+      // Navigate to dashboard page
+      router.push('/dashboard');
     } catch (err) {
       console.error('Error saving profile:', err);
       setError(err instanceof Error ? err.message : 'Failed to save profile');
@@ -247,7 +248,7 @@ export default function Onboarding() {
                     placeholder="e.g. Parramatta, Sydney CBD, Melbourne"
                     value={profile.location}
                     onChange={(e) => updateProfile({ location: e.target.value })}
-                    className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none"
+                    className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none text-gray-900 placeholder-gray-400"
                   />
                 </div>
 
@@ -262,7 +263,7 @@ export default function Onboarding() {
                     placeholder="e.g. 2150, 3000"
                     value={profile.postcode}
                     onChange={(e) => updateProfile({ postcode: e.target.value })}
-                    className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none"
+                    className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none text-gray-900 placeholder-gray-400"
                     maxLength={4}
                   />
                 </div>
@@ -312,7 +313,7 @@ export default function Onboarding() {
                       placeholder="e.g. 150"
                       value={profile.monthlyRent || ''}
                       onChange={(e) => updateProfile({ monthlyRent: parseInt(e.target.value) || 0 })}
-                      className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none text-lg"
+                      className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none text-lg text-gray-900 placeholder-gray-400"
                     />
                   </div>
                   <div>
@@ -320,7 +321,7 @@ export default function Onboarding() {
                     <select
                       value={profile.rentFrequency}
                       onChange={(e) => updateProfile({ rentFrequency: e.target.value as 'weekly' | 'fortnightly' | 'monthly' })}
-                      className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none text-lg"
+                      className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none text-lg text-gray-900 bg-white"
                     >
                       <option value="weekly">Weekly</option>
                       <option value="fortnightly">Fortnightly</option>
@@ -352,7 +353,7 @@ export default function Onboarding() {
                     placeholder="e.g. 1200"
                     value={profile.monthlyIncome || ''}
                     onChange={(e) => updateProfile({ monthlyIncome: parseInt(e.target.value) || 0 })}
-                    className="w-full p-4 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none text-lg"
+                    className="w-full p-4 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none text-lg text-gray-900 placeholder-gray-400"
                   />
                 </div>
                 <div>
@@ -362,7 +363,7 @@ export default function Onboarding() {
                   <select
                     value={profile.incomeFrequency}
                     onChange={(e) => updateProfile({ incomeFrequency: e.target.value as 'weekly' | 'fortnightly' | 'monthly' })}
-                    className="w-full p-4 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none text-lg"
+                    className="w-full p-4 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none text-lg text-gray-900 bg-white"
                   >
                     <option value="weekly">Weekly</option>
                     <option value="fortnightly">Fortnightly</option>
@@ -388,7 +389,7 @@ export default function Onboarding() {
                 placeholder="e.g. 80"
                 value={profile.weeklyGroceryBudget || ''}
                 onChange={(e) => updateProfile({ weeklyGroceryBudget: parseInt(e.target.value) || 0 })}
-                className="w-full p-4 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none text-lg"
+                className="w-full p-4 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none text-lg text-gray-900 placeholder-gray-400"
               />
               <div className="text-sm text-gray-500">
                 Include: food, drinks, household items from supermarkets
@@ -408,7 +409,7 @@ export default function Onboarding() {
                 placeholder="e.g. 1500"
                 value={profile.currentSavings || ''}
                 onChange={(e) => updateProfile({ currentSavings: parseInt(e.target.value) || 0 })}
-                className="w-full p-4 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none text-lg"
+                className="w-full p-4 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none text-lg text-gray-900 placeholder-gray-400"
               />
               <div className="text-sm text-gray-500">
                 Total in savings accounts, term deposits, cash
@@ -433,7 +434,7 @@ export default function Onboarding() {
                       placeholder="e.g. Netflix, Phone Bill, Transport"
                       value={cost.name}
                       onChange={(e) => updateRecurringCost(index, { name: e.target.value })}
-                      className="flex-1 p-2 border border-gray-300 rounded focus:border-green-500 focus:outline-none font-medium"
+                      className="flex-1 p-2 border border-gray-300 rounded focus:border-green-500 focus:outline-none font-medium text-gray-900 placeholder-gray-400"
                     />
                     <button
                       onClick={() => removeRecurringCost(index)}
@@ -452,7 +453,7 @@ export default function Onboarding() {
                         placeholder="0"
                         value={cost.amount || ''}
                         onChange={(e) => updateRecurringCost(index, { amount: parseFloat(e.target.value) || 0 })}
-                        className="w-full p-2 border border-gray-300 rounded focus:border-green-500 focus:outline-none"
+                        className="w-full p-2 border border-gray-300 rounded focus:border-green-500 focus:outline-none text-gray-900 placeholder-gray-400"
                       />
                     </div>
 
@@ -461,7 +462,7 @@ export default function Onboarding() {
                       <select
                         value={cost.frequency}
                         onChange={(e) => updateRecurringCost(index, { frequency: e.target.value as 'weekly' | 'monthly' | 'yearly' })}
-                        className="w-full p-2 border border-gray-300 rounded focus:border-green-500 focus:outline-none"
+                        className="w-full p-2 border border-gray-300 rounded focus:border-green-500 focus:outline-none text-gray-900 bg-white"
                       >
                         <option value="weekly">Weekly</option>
                         <option value="monthly">Monthly</option>
@@ -474,7 +475,7 @@ export default function Onboarding() {
                       <select
                         value={cost.type}
                         onChange={(e) => updateRecurringCost(index, { type: e.target.value as 'fixed' | 'variable' })}
-                        className="w-full p-2 border border-gray-300 rounded focus:border-green-500 focus:outline-none"
+                        className="w-full p-2 border border-gray-300 rounded focus:border-green-500 focus:outline-none text-gray-900 bg-white"
                       >
                         <option value="fixed">Fixed</option>
                         <option value="variable">Variable</option>

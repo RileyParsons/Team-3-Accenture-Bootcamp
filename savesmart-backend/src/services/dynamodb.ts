@@ -1,0 +1,796 @@
+/**
+ * DynamoDB Service Module
+ *
+ * Provides data access layer for DynamoDB operations.
+ * Handles CRUD operations for users and savings plans.
+ */
+
+import {
+  GetCommand,
+  PutCommand,
+  UpdateCommand,
+  QueryCommand,
+  ScanCommand,
+} from '@aws-sdk/lib-dynamodb';
+import { getDocumentClient } from '../config/aws.js';
+import { getConfig } from '../config/env.js';
+import { User } from '../models/User.js';
+import { SavingsPlan } from '../models/SavingsPlan.js';
+import { Event } from '../models/Event.js';
+import { Recipe } from '../models/Recipe.js';
+import { FuelStation } from '../models/FuelStation.js';
+
+/**
+ * DynamoDB Service class for database operations
+ */
+export class DynamoDBService {
+  private docClient = getDocumentClient();
+  private config = getConfig();
+
+  /**
+   * Get a user by userId
+   * @param userId - The user's unique identifier
+   * @returns User object or null if not found
+   */
+  async getUser(userId: string): Promise<User | null> {
+    try {
+      const command = new GetCommand({
+        TableName: this.config.dynamodb.usersTable,
+        Key: { userId },
+      });
+
+      const response = await this.docClient.send(command);
+
+      if (!response.Item) {
+        return null;
+      }
+
+      return response.Item as User;
+    } catch (error) {
+      console.error('Error getting user:', error);
+      throw new Error(`Failed to get user: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Update a user's information
+   * @param userId - The user's unique identifier
+   * @param updates - Partial user object with fields to update
+   * @returns Updated user object
+   */
+  async updateUser(userId: string, updates: Partial<User>): Promise<User> {
+    try {
+      // First, get the existing user to ensure it exists
+      const existingUser = await this.getUser(userId);
+      if (!existingUser) {
+        throw new Error(`User with ID ${userId} not found`);
+      }
+
+      // Build update expression dynamically
+      const updateExpressions: string[] = [];
+      const expressionAttributeNames: Record<string, string> = {};
+      const expressionAttributeValues: Record<string, any> = {};
+
+      // Add updatedAt timestamp
+      updates.updatedAt = new Date().toISOString();
+
+      // Build update expressions for each field
+      Object.entries(updates).forEach(([key, value]) => {
+        if (key !== 'userId') { // Don't update the partition key
+          updateExpressions.push(`#${key} = :${key}`);
+          expressionAttributeNames[`#${key}`] = key;
+          expressionAttributeValues[`:${key}`] = value;
+        }
+      });
+
+      const command = new UpdateCommand({
+        TableName: this.config.dynamodb.usersTable,
+        Key: { userId },
+        UpdateExpression: `SET ${updateExpressions.join(', ')}`,
+        ExpressionAttributeNames: expressionAttributeNames,
+        ExpressionAttributeValues: expressionAttributeValues,
+        ReturnValues: 'ALL_NEW',
+      });
+
+      const response = await this.docClient.send(command);
+
+      return response.Attributes as User;
+    } catch (error) {
+      console.error('Error updating user:', error);
+      throw new Error(`Failed to update user: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Create a new user
+   * @param user - User object to create
+   * @returns Created user object
+   */
+  async createUser(user: User): Promise<User> {
+    try {
+      // Add timestamps
+      const now = new Date().toISOString();
+      const userWithTimestamps = {
+        ...user,
+        createdAt: user.createdAt || now,
+        updatedAt: user.updatedAt || now,
+      };
+
+      const command = new PutCommand({
+        TableName: this.config.dynamodb.usersTable,
+        Item: userWithTimestamps,
+        ConditionExpression: 'attribute_not_exists(userId)', // Prevent overwriting existing users
+      });
+
+      await this.docClient.send(command);
+
+      return userWithTimestamps;
+    } catch (error) {
+      console.error('Error creating user:', error);
+      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
+        throw new Error(`User with ID ${user.userId} already exists`);
+      }
+      throw new Error(`Failed to create user: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Get a savings plan by planId
+   * @param planId - The plan's unique identifier
+   * @returns SavingsPlan object or null if not found
+   */
+  async getSavingsPlan(planId: string): Promise<SavingsPlan | null> {
+    try {
+      const command = new GetCommand({
+        TableName: this.config.dynamodb.plansTable,
+        Key: { planId },
+      });
+
+      const response = await this.docClient.send(command);
+
+      if (!response.Item) {
+        return null;
+      }
+
+      return response.Item as SavingsPlan;
+    } catch (error) {
+      console.error('Error getting savings plan:', error);
+      throw new Error(`Failed to get savings plan: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Get all savings plans for a user
+   * @param userId - The user's unique identifier
+   * @returns Array of savings plans
+   */
+  async getUserSavingsPlans(userId: string): Promise<SavingsPlan[]> {
+    try {
+      // Use Scan with filter for now
+      // In production, this should use a GSI on userId for better performance
+      const command = new ScanCommand({
+        TableName: this.config.dynamodb.plansTable,
+        FilterExpression: 'userId = :userId',
+        ExpressionAttributeValues: {
+          ':userId': userId,
+        },
+      });
+
+      const response = await this.docClient.send(command);
+
+      return (response.Items || []) as SavingsPlan[];
+    } catch (error) {
+      console.error('Error getting user savings plans:', error);
+      throw new Error(`Failed to get user savings plans: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Create a new savings plan
+   * @param plan - SavingsPlan object to create
+   * @returns Created savings plan object
+   */
+  async createSavingsPlan(plan: SavingsPlan): Promise<SavingsPlan> {
+    try {
+      // Add createdAt timestamp if not provided
+      const planWithTimestamp = {
+        ...plan,
+        createdAt: plan.createdAt || new Date().toISOString(),
+      };
+
+      const command = new PutCommand({
+        TableName: this.config.dynamodb.plansTable,
+        Item: planWithTimestamp,
+        ConditionExpression: 'attribute_not_exists(planId)', // Prevent overwriting existing plans
+      });
+
+      await this.docClient.send(command);
+
+      return planWithTimestamp;
+    } catch (error) {
+      console.error('Error creating savings plan:', error);
+      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
+        throw new Error(`Savings plan with ID ${plan.planId} already exists`);
+      }
+      throw new Error(`Failed to create savings plan: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Create a meal plan
+   * @param plan - Meal plan object to create
+   * @returns Created meal plan object
+   */
+  async createMealPlan(userId: string, mealPlan: any): Promise<any> {
+    try {
+      const planId = `plan_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+      const now = new Date().toISOString();
+
+      const planRecord = {
+        planId,
+        userId,
+        planType: 'meal',
+        ...mealPlan,
+        createdAt: mealPlan.createdAt || now,
+        updatedAt: now,
+      };
+
+      const command = new PutCommand({
+        TableName: this.config.dynamodb.plansTable,
+        Item: planRecord,
+      });
+
+      await this.docClient.send(command);
+
+      // Update user record with planId reference
+      await this.updateUser(userId, {
+        mealPlanId: planId,
+      } as any);
+
+      return planRecord;
+    } catch (error) {
+      console.error('Error creating meal plan:', error);
+      throw new Error(`Failed to create meal plan: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Get a meal plan by userId and planId
+   * @param userId - The user's unique identifier
+   * @param planId - The plan's unique identifier
+   * @returns Meal plan object or null if not found
+   */
+  async getMealPlan(userId: string, planId: string): Promise<any | null> {
+    try {
+      const command = new GetCommand({
+        TableName: this.config.dynamodb.plansTable,
+        Key: {
+          userId,
+          planId
+        },
+      });
+
+      const response = await this.docClient.send(command);
+
+      if (!response.Item) {
+        return null;
+      }
+
+      return response.Item;
+    } catch (error) {
+      console.error('Error getting meal plan:', error);
+      throw new Error(`Failed to get meal plan: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Get user's meal plan (convenience method)
+   * @param userId - The user's unique identifier
+   * @returns Meal plan object or null if not found
+   */
+  async getUserMealPlan(userId: string): Promise<any | null> {
+    try {
+      // Get user to find mealPlanId
+      const user = await this.getUser(userId);
+      if (!user || !(user as any).mealPlanId) {
+        return null;
+      }
+
+      // Get the meal plan using both userId and planId
+      return await this.getMealPlan(userId, (user as any).mealPlanId);
+    } catch (error) {
+      console.error('Error getting user meal plan:', error);
+      throw new Error(`Failed to get user meal plan: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Delete a meal plan
+   * @param planId - The plan's unique identifier
+   */
+  async deleteMealPlan(userId: string, planId: string): Promise<void> {
+      try {
+        const { DeleteCommand } = await import('@aws-sdk/lib-dynamodb');
+
+        const command = new DeleteCommand({
+          TableName: this.config.dynamodb.plansTable,
+          Key: {
+            userId,
+            planId
+          },
+        });
+
+        await this.docClient.send(command);
+      } catch (error) {
+        console.error('Error deleting meal plan:', error);
+        throw new Error(`Failed to delete meal plan: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
+
+  /**
+   * Update a meal plan
+   * @param userId - The user's unique identifier
+   * @param planId - The plan's unique identifier
+   * @param updates - Partial meal plan object with fields to update
+   * @returns Updated meal plan object
+   */
+  async updateMealPlan(userId: string, planId: string, updates: any): Promise<any> {
+    try {
+      // Add updatedAt timestamp
+      updates.updatedAt = new Date().toISOString();
+
+      // Build update expression dynamically
+      const updateExpressions: string[] = [];
+      const expressionAttributeNames: Record<string, string> = {};
+      const expressionAttributeValues: Record<string, any> = {};
+
+      // Build update expressions for each field
+      Object.entries(updates).forEach(([key, value]) => {
+        if (key !== 'userId' && key !== 'planId') { // Don't update the keys
+          updateExpressions.push(`#${key} = :${key}`);
+          expressionAttributeNames[`#${key}`] = key;
+          expressionAttributeValues[`:${key}`] = value;
+        }
+      });
+
+      const command = new UpdateCommand({
+        TableName: this.config.dynamodb.plansTable,
+        Key: {
+          userId,
+          planId
+        },
+        UpdateExpression: `SET ${updateExpressions.join(', ')}`,
+        ExpressionAttributeNames: expressionAttributeNames,
+        ExpressionAttributeValues: expressionAttributeValues,
+        ReturnValues: 'ALL_NEW',
+      });
+
+      const response = await this.docClient.send(command);
+
+      return response.Attributes;
+    } catch (error) {
+      console.error('Error updating meal plan:', error);
+      throw new Error(`Failed to update meal plan: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Get events with optional filtering
+   * @param filters - Optional filters for suburb and postcode
+   * @returns Array of events
+   */
+  async getEvents(filters?: { suburb?: string; postcode?: string }): Promise<Event[]> {
+    try {
+      if (filters?.suburb || filters?.postcode) {
+        // Use Scan with filter for location-based queries
+        const filterExpressions: string[] = [];
+        const expressionAttributeValues: Record<string, any> = {};
+
+        if (filters.suburb) {
+          filterExpressions.push('location.suburb = :suburb');
+          expressionAttributeValues[':suburb'] = filters.suburb;
+        }
+
+        if (filters.postcode) {
+          filterExpressions.push('location.postcode = :postcode');
+          expressionAttributeValues[':postcode'] = filters.postcode;
+        }
+
+        const command = new ScanCommand({
+          TableName: this.config.dynamodb.eventsTable,
+          FilterExpression: filterExpressions.join(' AND '),
+          ExpressionAttributeValues: expressionAttributeValues,
+        });
+
+        const response = await this.docClient.send(command);
+        return (response.Items || []) as Event[];
+      } else {
+        // No filters, return all events
+        const command = new ScanCommand({
+          TableName: this.config.dynamodb.eventsTable,
+        });
+
+        const response = await this.docClient.send(command);
+        return (response.Items || []) as Event[];
+      }
+    } catch (error) {
+      console.error('Error getting events:', error);
+      throw new Error(`Failed to get events: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Cache events in DynamoDB
+   * @param events - Array of events to cache
+   */
+  async cacheEvents(events: Event[]): Promise<void> {
+    try {
+      // Add cachedAt timestamp to all events
+      const now = new Date().toISOString();
+      const eventsWithTimestamp = events.map(event => ({
+        ...event,
+        cachedAt: now,
+      }));
+
+      // Batch write events (DynamoDB supports up to 25 items per batch)
+      const batchSize = 25;
+      for (let i = 0; i < eventsWithTimestamp.length; i += batchSize) {
+        const batch = eventsWithTimestamp.slice(i, i + batchSize);
+
+        // Use individual PutCommands for simplicity
+        await Promise.all(
+          batch.map(event =>
+            this.docClient.send(
+              new PutCommand({
+                TableName: this.config.dynamodb.eventsTable,
+                Item: event,
+              })
+            )
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Error caching events:', error);
+      throw new Error(`Failed to cache events: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Get recipes with optional filtering
+   * @param filters - Optional filters for dietary tags
+   * @returns Array of recipes
+   */
+  async getRecipes(filters?: { dietaryTags?: string[] }): Promise<Recipe[]> {
+    try {
+      if (filters?.dietaryTags && filters.dietaryTags.length > 0) {
+        // Use Scan with filter for dietary tags
+        const command = new ScanCommand({
+          TableName: this.config.dynamodb.recipesTable,
+          FilterExpression: 'contains(dietaryTags, :tag)',
+          ExpressionAttributeValues: {
+            ':tag': filters.dietaryTags[0], // For simplicity, filter by first tag
+          },
+        });
+
+        const response = await this.docClient.send(command);
+        return (response.Items || []) as Recipe[];
+      } else {
+        // No filters, return all recipes
+        const command = new ScanCommand({
+          TableName: this.config.dynamodb.recipesTable,
+        });
+
+        const response = await this.docClient.send(command);
+        return (response.Items || []) as Recipe[];
+      }
+    } catch (error) {
+      console.error('Error getting recipes:', error);
+      throw new Error(`Failed to get recipes: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Get a single recipe by recipeId
+   * @param recipeId - The recipe's unique identifier
+   * @returns Recipe object or null if not found
+   */
+  async getRecipe(recipeId: string): Promise<Recipe | null> {
+    try {
+      const command = new GetCommand({
+        TableName: this.config.dynamodb.recipesTable,
+        Key: { recipeId },
+      });
+
+      const response = await this.docClient.send(command);
+
+      if (!response.Item) {
+        return null;
+      }
+
+      return response.Item as Recipe;
+    } catch (error) {
+      console.error('Error getting recipe:', error);
+      throw new Error(`Failed to get recipe: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Cache recipes in DynamoDB
+   * @param recipes - Array of recipes to cache
+   */
+  async cacheRecipes(recipes: Recipe[]): Promise<void> {
+    try {
+      // Add cachedAt timestamp to all recipes
+      const now = new Date().toISOString();
+      const recipesWithTimestamp = recipes.map(recipe => ({
+        ...recipe,
+        cachedAt: now,
+      }));
+
+      // Batch write recipes (DynamoDB supports up to 25 items per batch)
+      const batchSize = 25;
+      for (let i = 0; i < recipesWithTimestamp.length; i += batchSize) {
+        const batch = recipesWithTimestamp.slice(i, i + batchSize);
+
+        // Use individual PutCommands for simplicity
+        await Promise.all(
+          batch.map(recipe =>
+            this.docClient.send(
+              new PutCommand({
+                TableName: this.config.dynamodb.recipesTable,
+                Item: recipe,
+              })
+            )
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Error caching recipes:', error);
+      throw new Error(`Failed to cache recipes: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Get fuel stations with optional filtering
+   * @param filters - Optional filters for suburb, postcode, and fuel type
+   * @returns Array of fuel stations
+   */
+  async getFuelStations(filters?: { suburb?: string; postcode?: string; fuelType?: string }): Promise<FuelStation[]> {
+    try {
+      if (filters?.suburb || filters?.postcode) {
+        // Use Scan with filter for location-based queries
+        const filterExpressions: string[] = [];
+        const expressionAttributeValues: Record<string, any> = {};
+
+        if (filters.suburb) {
+          filterExpressions.push('location.suburb = :suburb');
+          expressionAttributeValues[':suburb'] = filters.suburb;
+        }
+
+        if (filters.postcode) {
+          filterExpressions.push('location.postcode = :postcode');
+          expressionAttributeValues[':postcode'] = filters.postcode;
+        }
+
+        const command = new ScanCommand({
+          TableName: this.config.dynamodb.fuelStationsTable,
+          FilterExpression: filterExpressions.join(' AND '),
+          ExpressionAttributeValues: expressionAttributeValues,
+        });
+
+        const response = await this.docClient.send(command);
+        let stations = (response.Items || []) as FuelStation[];
+
+        // Filter by fuel type in memory if specified
+        if (filters.fuelType) {
+          stations = stations.filter(station =>
+            station.prices.some(price => price.fuelType === filters.fuelType)
+          );
+        }
+
+        return stations;
+      } else {
+        // No filters, return all fuel stations
+        const command = new ScanCommand({
+          TableName: this.config.dynamodb.fuelStationsTable,
+        });
+
+        const response = await this.docClient.send(command);
+        let stations = (response.Items || []) as FuelStation[];
+
+        // Filter by fuel type in memory if specified
+        if (filters?.fuelType) {
+          stations = stations.filter(station =>
+            station.prices.some(price => price.fuelType === filters.fuelType)
+          );
+        }
+
+        return stations;
+      }
+    } catch (error) {
+      console.error('Error getting fuel stations:', error);
+      throw new Error(`Failed to get fuel stations: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Cache fuel stations in DynamoDB
+   * @param stations - Array of fuel stations to cache
+   */
+  async cacheFuelStations(stations: FuelStation[]): Promise<void> {
+    try {
+      // Add updatedAt timestamp to all stations
+      const now = new Date().toISOString();
+      const stationsWithTimestamp = stations.map(station => ({
+        ...station,
+        updatedAt: now,
+      }));
+
+      // Batch write stations (DynamoDB supports up to 25 items per batch)
+      const batchSize = 25;
+      for (let i = 0; i < stationsWithTimestamp.length; i += batchSize) {
+        const batch = stationsWithTimestamp.slice(i, i + batchSize);
+
+        // Use individual PutCommands for simplicity
+        await Promise.all(
+          batch.map(station =>
+            this.docClient.send(
+              new PutCommand({
+                TableName: this.config.dynamodb.fuelStationsTable,
+                Item: station,
+              })
+            )
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Error caching fuel stations:', error);
+      throw new Error(`Failed to cache fuel stations: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Transaction Management Methods
+   */
+
+  /**
+   * Create a new transaction
+   */
+  async createTransaction(transaction: any): Promise<any> {
+    try {
+      const command = new PutCommand({
+        TableName: this.config.dynamodb.transactionsTable,
+        Item: transaction,
+      });
+
+      await this.docClient.send(command);
+      console.log('Transaction created:', transaction.transactionId);
+      return transaction;
+    } catch (error) {
+      console.error('Error creating transaction:', error);
+      throw new Error(`Failed to create transaction: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Get user transactions with optional filtering
+   */
+  async getUserTransactions(
+    userId: string,
+    startDate?: string,
+    endDate?: string,
+    type?: string
+  ): Promise<any[]> {
+    try {
+      const params: any = {
+        TableName: this.config.dynamodb.transactionsTable,
+        IndexName: 'UserIdIndex',
+        KeyConditionExpression: 'userId = :userId',
+        ExpressionAttributeValues: {
+          ':userId': userId,
+        },
+      };
+
+      // Add date range filter if provided
+      if (startDate && endDate) {
+        params.KeyConditionExpression += ' AND #date BETWEEN :startDate AND :endDate';
+        params.ExpressionAttributeNames = { '#date': 'date' };
+        params.ExpressionAttributeValues[':startDate'] = startDate;
+        params.ExpressionAttributeValues[':endDate'] = endDate;
+      } else if (startDate) {
+        params.KeyConditionExpression += ' AND #date >= :startDate';
+        params.ExpressionAttributeNames = { '#date': 'date' };
+        params.ExpressionAttributeValues[':startDate'] = startDate;
+      }
+
+      // Add type filter if provided
+      if (type) {
+        params.FilterExpression = '#type = :type';
+        params.ExpressionAttributeNames = { ...params.ExpressionAttributeNames, '#type': 'type' };
+        params.ExpressionAttributeValues[':type'] = type;
+      }
+
+      const command = new QueryCommand(params);
+      const response = await this.docClient.send(command);
+
+      return response.Items || [];
+    } catch (error) {
+      console.error('Error getting transactions:', error);
+      throw new Error(`Failed to get transactions: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Get transaction summary aggregated by time period
+   */
+  async getTransactionSummary(
+    userId: string,
+    startDate?: string,
+    endDate?: string,
+    groupBy: 'day' | 'week' | 'month' = 'day'
+  ): Promise<any> {
+    try {
+      // Get all transactions for the user in the date range
+      const transactions = await this.getUserTransactions(userId, startDate, endDate);
+
+      // Group transactions by date
+      const groupedData = new Map<string, { income: number; expenses: number; savings: number }>();
+
+      transactions.forEach((transaction: any) => {
+        const date = transaction.date.split('T')[0]; // Get YYYY-MM-DD
+
+        if (!groupedData.has(date)) {
+          groupedData.set(date, { income: 0, expenses: 0, savings: 0 });
+        }
+
+        const dayData = groupedData.get(date)!;
+
+        if (transaction.type === 'income') {
+          dayData.income += transaction.amount;
+        } else if (transaction.type === 'expense') {
+          dayData.expenses += transaction.amount;
+        } else if (transaction.type === 'savings') {
+          dayData.savings += transaction.amount;
+        }
+      });
+
+      // Convert to array and sort by date
+      const summary = Array.from(groupedData.entries())
+        .map(([date, data]) => ({ date, ...data }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+
+      // Calculate totals
+      const totals = {
+        income: summary.reduce((sum, d) => sum + d.income, 0),
+        expenses: summary.reduce((sum, d) => sum + d.expenses, 0),
+        savings: summary.reduce((sum, d) => sum + d.savings, 0),
+      };
+
+      return { summary, totals };
+    } catch (error) {
+      console.error('Error getting transaction summary:', error);
+      throw new Error(`Failed to get transaction summary: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Delete a transaction
+   */
+  async deleteTransaction(transactionId: string): Promise<void> {
+    try {
+      const command = new PutCommand({
+        TableName: this.config.dynamodb.transactionsTable,
+        Item: { transactionId },
+      });
+
+      await this.docClient.send(command);
+      console.log('Transaction deleted:', transactionId);
+    } catch (error) {
+      console.error('Error deleting transaction:', error);
+      throw new Error(`Failed to delete transaction: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+}
+
+// Note: Do not export singleton instance to avoid initialization before dotenv loads
+// Services should create their own instances using lazy initialization

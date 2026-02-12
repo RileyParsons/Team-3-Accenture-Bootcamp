@@ -92,7 +92,7 @@ Create these 5 Lambda functions with the following settings:
 - **Memory**: 256 MB
 - **Role**: savesmart-lambda-execution-role
 - **Environment variables**:
-  - `N8N_WEBHOOK_URL` = (get this from AI/Agent team)
+  - `N8N_WEBHOOK_URL` = `https://henrykb.app.n8n.cloud/webhook/02e3f00d-8a1f-4dfa-b772-eef5e1f68b08`
 
 #### Function 5: savesmart-getPlans
 - **Runtime**: Node.js 20.x

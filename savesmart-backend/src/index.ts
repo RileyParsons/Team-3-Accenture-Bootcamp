@@ -1,13 +1,25 @@
-import express from 'express';
-import dotenv from 'dotenv';
+// CRITICAL: Load environment variables BEFORE any other imports
+import './env-loader.js';
 
-// Load environment variables
-dotenv.config();
+import express from 'express';
+import { getConfig } from './config/env.js';
+import { testConnection, validateTables } from './config/aws.js';
+import { corsMiddleware } from './middleware/cors.js';
+import { loggerMiddleware } from './middleware/logger.js';
+import { errorHandler } from './middleware/errorHandler.js';
+import chatRoutes from './routes/chat.js';
+import profileRoutes from './routes/profile.js';
+import recipeRoutes from './routes/recipes.js';
+import eventsRoutes from './routes/events.js';
+import authRoutes from './routes/auth.js';
+import transactionRoutes from './routes/transactions.js';
+import mealPlanRoutes from './routes/mealPlan.js';
 
 const app = express();
-const PORT = process.env.PORT || 3001;
 
 // Middleware
+app.use(corsMiddleware);
+app.use(loggerMiddleware);
 app.use(express.json());
 
 // Health check endpoint
@@ -15,10 +27,65 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'SaveSmart backend is running' });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`SaveSmart backend server running on http://localhost:${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-});
+// API Routes
+app.use('/api', chatRoutes);
+app.use('/api', profileRoutes);
+app.use('/api', recipeRoutes);
+app.use('/api', eventsRoutes);
+app.use('/api', authRoutes);
+app.use('/api', transactionRoutes);
+app.use('/api', mealPlanRoutes);
+
+// Global error handler (must be last)
+app.use(errorHandler);
+
+/**
+ * Initialize the application
+ * Validates configuration and tests database connection before starting server
+ */
+async function initializeApp() {
+  try {
+    console.log('\n🚀 Starting SaveSmart Backend Server...\n');
+
+    // Load and validate environment configuration
+    console.log('📋 Loading environment configuration...');
+    const config = getConfig();
+    console.log(`✓ Environment: ${config.nodeEnv}`);
+    console.log(`✓ Port: ${config.port}`);
+    console.log(`✓ CORS Origin: ${config.corsOrigin}`);
+    console.log(`✓ AWS Region: ${config.aws.region}`);
+    console.log(`✓ OpenAI API configured: ${config.openai.apiKey ? 'Yes' : 'No'}`);
+
+    // Test DynamoDB connection
+    console.log('\n🔌 Testing DynamoDB connection...');
+    const connectionSuccess = await testConnection();
+
+    if (!connectionSuccess) {
+      console.error('\n❌ Failed to connect to DynamoDB');
+      console.error('The server will start but database operations will fail.\n');
+    }
+
+    // Validate required tables exist
+    console.log('\n📊 Validating DynamoDB tables...');
+    await validateTables();
+
+    // Start the Express server
+    app.listen(config.port, () => {
+      console.log('\n✅ SaveSmart Backend Server is ready!');
+      console.log(`\n🌐 Server running at: http://localhost:${config.port}`);
+      console.log(`📝 Health check: http://localhost:${config.port}/health\n`);
+    });
+  } catch (error) {
+    console.error('\n❌ Failed to start server:');
+    if (error instanceof Error) {
+      console.error(error.message);
+    }
+    console.error('\nThe server cannot start. Please fix the errors above and try again.\n');
+    process.exit(1);
+  }
+}
+
+// Start the application
+initializeApp();
 
 export default app;

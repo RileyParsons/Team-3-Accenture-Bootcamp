@@ -1,0 +1,16 @@
+{
+  "userId": "demo-sarah-123",
+  "email": "sarah@uni.edu.au",
+  "name": "Sarah",
+  "income": 1200,
+  "rent": 600,
+  "groceryBudget": 80,
+  "savings": 500,
+  "hasCar": true,
+  "fuelType": "E10",
+  "location": "Parramatta",
+  "postcode": "2150",
+  "dietaryPreferences": ["vegetarian"],
+  "subscriptions": ["Netflix", "Spotify"],
+  "createdAt": "2026-02-11T10:00:00Z"
+}

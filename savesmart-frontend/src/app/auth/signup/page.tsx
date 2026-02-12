@@ -4,7 +4,8 @@ import { useState } from "react";
 import { PiggyBank, Eye, EyeOff, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { registerUser, generateUserId } from "@/lib/api";
+// No longer need to import API functions - signup only saves to localStorage
+// Database save happens after onboarding completes
 
 export default function Signup() {
   const router = useRouter();
@@ -63,31 +64,32 @@ export default function Signup() {
       setIsLoading(true);
 
       try {
-        // Register user with password
-        const result = await registerUser(
-          formData.email,
-          formData.password,
-          `${formData.firstName} ${formData.lastName}`
-        );
+        // Generate userId locally
+        const userId = `u_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 
-        if (!result || !result.userId) {
-          throw new Error('Failed to create account');
-        }
+        // Hash password for storage (will be saved to DB after onboarding)
+        const encoder = new TextEncoder();
+        const data = encoder.encode(formData.password);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashedPassword = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
-        // Store user data in localStorage for session management
+        // Store user data in localStorage ONLY (no DB save yet)
+        // This will be saved to database after onboarding completes
         const localUserData = {
-          userId: result.userId,
+          userId: userId,
           email: formData.email,
           firstName: formData.firstName,
           lastName: formData.lastName,
           name: `${formData.firstName} ${formData.lastName}`,
+          hashedPassword: hashedPassword,
           createdAt: new Date().toISOString()
         };
 
         localStorage.setItem('savesmart_user', JSON.stringify(localUserData));
         localStorage.setItem('savesmart_authenticated', 'true');
 
-        // Redirect to onboarding
+        // Redirect to onboarding (which will save to DB after completion)
         router.push('/onboarding');
       } catch (error: any) {
         console.error('Signup error:', error);
@@ -147,7 +149,7 @@ export default function Signup() {
                   type="text"
                   value={formData.firstName}
                   onChange={(e) => updateField('firstName', e.target.value)}
-                  className={`w-full p-3 border-2 rounded-lg focus:outline-none transition-colors ${errors.firstName
+                  className={`w-full p-3 border-2 rounded-lg focus:outline-none transition-colors text-gray-900 placeholder-gray-400 ${errors.firstName
                     ? 'border-red-300 focus:border-red-500'
                     : 'border-gray-200 focus:border-green-500'
                     }`}
@@ -166,7 +168,7 @@ export default function Signup() {
                   type="text"
                   value={formData.lastName}
                   onChange={(e) => updateField('lastName', e.target.value)}
-                  className={`w-full p-3 border-2 rounded-lg focus:outline-none transition-colors ${errors.lastName
+                  className={`w-full p-3 border-2 rounded-lg focus:outline-none transition-colors text-gray-900 placeholder-gray-400 ${errors.lastName
                     ? 'border-red-300 focus:border-red-500'
                     : 'border-gray-200 focus:border-green-500'
                     }`}
@@ -187,7 +189,7 @@ export default function Signup() {
                 type="email"
                 value={formData.email}
                 onChange={(e) => updateField('email', e.target.value)}
-                className={`w-full p-3 border-2 rounded-lg focus:outline-none transition-colors ${errors.email
+                className={`w-full p-3 border-2 rounded-lg focus:outline-none transition-colors text-gray-900 placeholder-gray-400 ${errors.email
                   ? 'border-red-300 focus:border-red-500'
                   : 'border-gray-200 focus:border-green-500'
                   }`}
@@ -208,7 +210,7 @@ export default function Signup() {
                   type={showPassword ? "text" : "password"}
                   value={formData.password}
                   onChange={(e) => updateField('password', e.target.value)}
-                  className={`w-full p-3 pr-12 border-2 rounded-lg focus:outline-none transition-colors ${errors.password
+                  className={`w-full p-3 pr-12 border-2 rounded-lg focus:outline-none transition-colors text-gray-900 placeholder-gray-400 ${errors.password
                     ? 'border-red-300 focus:border-red-500'
                     : 'border-gray-200 focus:border-green-500'
                     }`}
@@ -237,7 +239,7 @@ export default function Signup() {
                   type={showConfirmPassword ? "text" : "password"}
                   value={formData.confirmPassword}
                   onChange={(e) => updateField('confirmPassword', e.target.value)}
-                  className={`w-full p-3 pr-12 border-2 rounded-lg focus:outline-none transition-colors ${errors.confirmPassword
+                  className={`w-full p-3 pr-12 border-2 rounded-lg focus:outline-none transition-colors text-gray-900 placeholder-gray-400 ${errors.confirmPassword
                     ? 'border-red-300 focus:border-red-500'
                     : 'border-gray-200 focus:border-green-500'
                     }`}

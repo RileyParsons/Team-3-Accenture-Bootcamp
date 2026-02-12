@@ -170,13 +170,30 @@ async function verifyTableAccess() {
         email: { S: "test@example.com" },
         name: { S: "Test User" },
         income: { N: "1000" },
-        rent: { N: "500" },
-        groceryBudget: { N: "100" },
+        incomeFrequency: { S: "monthly" },
         savings: { N: "200" },
-        hasCar: { BOOL: false },
         location: { S: "Sydney" },
-        dietaryPreferences: { L: [] },
-        subscriptions: { L: [] },
+        postcode: { S: "2000" },
+        recurringExpenses: {
+          L: [
+            {
+              M: {
+                name: { S: "Rent" },
+                amount: { N: "500" },
+                frequency: { S: "monthly" },
+                isFixed: { BOOL: true }
+              }
+            },
+            {
+              M: {
+                name: { S: "Groceries" },
+                amount: { N: "100" },
+                frequency: { S: "weekly" },
+                isFixed: { BOOL: false }
+              }
+            }
+          ]
+        },
         createdAt: { S: new Date().toISOString() }
       }
     }));

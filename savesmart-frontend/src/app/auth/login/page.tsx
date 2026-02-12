@@ -58,8 +58,8 @@ export default function Login() {
           localStorage.setItem('savesmart_user', JSON.stringify(localUserData));
           localStorage.setItem('savesmart_authenticated', 'true');
 
-          // Redirect to chat (existing users skip onboarding)
-          router.push('/chat');
+          // Redirect to dashboard (existing users skip onboarding)
+          router.push('/dashboard');
         } else {
           setLoginError("Invalid email or password");
         }
@@ -107,7 +107,7 @@ export default function Login() {
             <h1 className="text-2xl font-bold text-gray-900 mb-2">
               Welcome back!
             </h1>
-            <p className="text-gray-600">
+            <p className="text-gray-900">
               Sign in to your SaveSmart account
             </p>
           </div>
@@ -128,7 +128,7 @@ export default function Login() {
                 type="email"
                 value={formData.email}
                 onChange={(e) => updateField('email', e.target.value)}
-                className={`w-full p-3 border-2 rounded-lg focus:outline-none transition-colors ${errors.email
+                className={`w-full p-3 border-2 rounded-lg focus:outline-none transition-colors text-gray-900 placeholder-gray-400 ${errors.email
                   ? 'border-red-300 focus:border-red-500'
                   : 'border-gray-200 focus:border-green-500'
                   }`}
@@ -154,7 +154,7 @@ export default function Login() {
                   type={showPassword ? "text" : "password"}
                   value={formData.password}
                   onChange={(e) => updateField('password', e.target.value)}
-                  className={`w-full p-3 pr-12 border-2 rounded-lg focus:outline-none transition-colors ${errors.password
+                  className={`w-full p-3 pr-12 border-2 rounded-lg focus:outline-none transition-colors text-gray-900 placeholder-gray-400 ${errors.password
                     ? 'border-red-300 focus:border-red-500'
                     : 'border-gray-200 focus:border-green-500'
                     }`}
