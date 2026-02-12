@@ -7,14 +7,15 @@ import MealPlanDisplay from '@/components/MealPlanDisplay';
 import RecipeBrowserModal from '@/components/RecipeBrowserModal';
 import { MealType } from '@/components/MealSlot';
 import {
-  generateMealPlan,
+  startGroceriesJob,
+  pollGroceriesJob,
   getMealPlan,
   removeMealFromSlot,
   addMealToSlot,
   MealPlan,
 } from '@/lib/api';
 
-type PageState = 'empty' | 'preferences' | 'loading' | 'display';
+type PageState = 'empty' | 'preferences' | 'loading' | 'display' | 'error';
 
 export default function MealPlanPage() {
   const router = useRouter();
@@ -29,6 +30,8 @@ export default function MealPlanPage() {
     day: string;
     mealType: MealType;
   } | null>(null);
+  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
+  const [abortController, setAbortController] = useState<AbortController | null>(null);
 
   // Load userId and check for existing meal plan on mount
   useEffect(() => {
@@ -61,35 +64,77 @@ export default function MealPlanPage() {
     };
 
     loadUserData();
+
+    // Cleanup: abort any ongoing polling when component unmounts
+    return () => {
+      if (abortController) {
+        abortController.abort();
+      }
+    };
   }, []);
 
-  // Handle meal plan generation
+  // Handle meal plan generation (async workflow)
   const handleGenerateMealPlan = async (preferences: MealPlanPreferences) => {
-    setPageState('loading');
-    setLoadingMessage('Generating your personalized meal plan...');
-    setError(null);
+    // Cancel any existing polling
+    if (abortController) {
+      abortController.abort();
+    }
 
-    // Set a timer to update the message after 5 seconds (Requirement 13.6)
-    const longRunningTimer = setTimeout(() => {
-      setLoadingMessage('AI is working on your personalized meal plan. This may take a moment...');
-    }, 5000);
+    const newAbortController = new AbortController();
+    setAbortController(newAbortController);
+
+    setPageState('loading');
+    setLoadingMessage('Starting meal plan generation...');
+    setError(null);
+    setCurrentJobId(null);
 
     try {
-      const generatedPlan = await generateMealPlan(userId, preferences);
+      // Step 1: Start the job (POST /groceries returns jobId with 202)
+      const jobId = await startGroceriesJob(userId, preferences);
+      setCurrentJobId(jobId);
+      setLoadingMessage(`Generating your meal plan (Job: ${jobId.substring(0, 8)}...)...`);
+
+      // Set a timer to update the message after 5 seconds
+      const longRunningTimer = setTimeout(() => {
+        setLoadingMessage('AI is working on your personalized meal plan. This may take a moment...');
+      }, 5000);
+
+      // Step 2: Poll for completion (GET /groceries/{jobId} until SUCCEEDED/ERROR)
+      const result = await pollGroceriesJob(jobId, {
+        signal: newAbortController.signal,
+        timeoutMs: 180000, // 3 minutes
+      });
+
       clearTimeout(longRunningTimer);
-      setMealPlan(generatedPlan);
+      
+      // Success!
+      setMealPlan(result);
       setPageState('display');
+      setCurrentJobId(null);
       showSuccessMessage('Meal plan generated successfully!');
     } catch (err) {
-      clearTimeout(longRunningTimer);
       console.error('Error generating meal plan:', err);
-      setError(err instanceof Error ? err.message : 'Failed to generate meal plan');
-      setPageState('preferences');
+      
+      // Check if it was cancelled
+      if (err instanceof Error && err.message.includes('cancelled')) {
+        setError('Meal plan generation was cancelled');
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to generate meal plan');
+      }
+      
+      setPageState('error');
+      setCurrentJobId(null);
+    } finally {
+      setAbortController(null);
     }
   };
 
   // Handle meal plan regeneration
   const handleRegenerate = () => {
+    // Cancel any ongoing polling
+    if (abortController) {
+      abortController.abort();
+    }
     setPageState('preferences');
   };
 
@@ -217,6 +262,56 @@ export default function MealPlanPage() {
     );
   }
 
+  // Render error state
+  if (pageState === 'error') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
+        <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
+          <div className="mb-6">
+            <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg
+                className="w-10 h-10 text-red-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">
+              Generation Failed
+            </h1>
+            <p className="text-gray-600 mb-4">
+              {error || 'An error occurred while generating your meal plan'}
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <button
+              onClick={() => setPageState('preferences')}
+              className="w-full px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors"
+            >
+              Try Again
+            </button>
+            {mealPlan && (
+              <button
+                onClick={() => setPageState('display')}
+                className="w-full px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
+              >
+                View Previous Plan
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Render preferences form
   if (pageState === 'preferences') {
     return (
@@ -269,7 +364,23 @@ export default function MealPlanPage() {
             <p className="text-gray-600 text-sm">
               This may take a few moments...
             </p>
+            {currentJobId && (
+              <p className="text-xs text-gray-400 mt-2 font-mono">
+                Job ID: {currentJobId}
+              </p>
+            )}
           </div>
+          {abortController && (
+            <button
+              onClick={() => {
+                abortController.abort();
+                setPageState('preferences');
+              }}
+              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+            >
+              Cancel
+            </button>
+          )}
         </div>
       </div>
     );

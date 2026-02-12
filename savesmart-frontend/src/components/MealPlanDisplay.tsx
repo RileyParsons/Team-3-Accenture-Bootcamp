@@ -71,12 +71,46 @@ export default function MealPlanDisplay({
 }: MealPlanDisplayProps) {
   // Helper function to find a meal for a specific day and meal type
   const getMealForSlot = (day: string, mealType: MealType): Meal | null => {
-    const dayPlan = mealPlan.days.find((d) => d.day === day);
+    const dayPlan = mealPlan?.days?.find((d) => d.day === day);
     if (!dayPlan) return null;
 
-    const meal = dayPlan.meals.find((m) => m.mealType === mealType);
+    const meal = dayPlan.meals?.find((m) => m.mealType === mealType);
     return meal || null;
   };
+
+  // Safe formatting helpers
+  const formatCalories = (): string => {
+    const calories = mealPlan?.nutritionSummary?.averageDailyCalories;
+    return typeof calories === 'number' ? calories.toFixed(0) : '—';
+  };
+
+  const formatWeeklyCost = (): string => {
+    const cost = mealPlan?.totalWeeklyCost;
+    return typeof cost === 'number' ? cost.toFixed(2) : '0.00';
+  };
+
+  // Validate meal plan has minimum required data
+  if (!mealPlan || !mealPlan.days || mealPlan.days.length === 0) {
+    console.warn('MealPlanDisplay: Incomplete meal plan data', mealPlan);
+    return (
+      <div className="max-w-7xl mx-auto">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+          <h2 className="text-lg font-semibold text-yellow-900 mb-2">
+            Incomplete Meal Plan
+          </h2>
+          <p className="text-yellow-700 mb-4">
+            The meal plan data is incomplete or still loading. Please try regenerating your plan.
+          </p>
+          <button
+            onClick={onRegenerate}
+            className="px-6 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
+          >
+            Regenerate Plan
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
@@ -86,7 +120,7 @@ export default function MealPlanDisplay({
           <div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Your Weekly Meal Plan</h1>
             <p className="text-gray-600">
-              {mealPlan.nutritionSummary.averageDailyCalories.toFixed(0)} avg daily calories
+              {formatCalories()} avg daily calories
             </p>
           </div>
 
@@ -94,7 +128,7 @@ export default function MealPlanDisplay({
           <div className="bg-green-50 border-2 border-green-200 rounded-lg px-6 py-4">
             <p className="text-sm text-gray-600 mb-1">Total Weekly Cost</p>
             <p className="text-3xl font-bold text-green-700">
-              ${mealPlan.totalWeeklyCost.toFixed(2)}
+              ${formatWeeklyCost()}
             </p>
           </div>
         </div>
@@ -149,7 +183,14 @@ export default function MealPlanDisplay({
       </div>
 
       {/* Shopping List */}
-      <ShoppingList shoppingList={mealPlan.shoppingList} />
+      {mealPlan.shoppingList ? (
+        <ShoppingList shoppingList={mealPlan.shoppingList} />
+      ) : (
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Shopping List</h2>
+          <p className="text-gray-600">Shopping list not available for this meal plan.</p>
+        </div>
+      )}
     </div>
   );
 }
