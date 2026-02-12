@@ -16,50 +16,87 @@ export function generateMockEvents(suburb?: string, postcode?: string): Event[] 
   const now = new Date();
   const locations: EventLocation[] = [
     {
-      venue: 'Sydney Opera House',
-      suburb: suburb || 'Sydney',
-      postcode: postcode || '2000',
-      coordinates: { lat: -33.8568, lng: 151.2153 }
+      venue: 'RMIT University',
+      suburb: suburb || 'Melbourne',
+      postcode: postcode || '3000',
+      coordinates: { lat: -37.8136, lng: 144.9631 }
     },
     {
-      venue: 'Bondi Pavilion',
-      suburb: suburb || 'Bondi Beach',
-      postcode: postcode || '2026',
-      coordinates: { lat: -33.8915, lng: 151.2767 }
+      venue: 'State Library Victoria',
+      suburb: suburb || 'Melbourne',
+      postcode: postcode || '3000',
+      coordinates: { lat: -37.8098, lng: 144.9652 }
     },
     {
-      venue: 'Parramatta Park',
-      suburb: suburb || 'Parramatta',
-      postcode: postcode || '2150',
-      coordinates: { lat: -33.8151, lng: 151.0037 }
+      venue: 'Melbourne Connect',
+      suburb: suburb || 'Carlton',
+      postcode: postcode || '3053',
+      coordinates: { lat: -37.7963, lng: 144.9614 }
+    },
+    {
+      venue: 'Monash University',
+      suburb: suburb || 'Clayton',
+      postcode: postcode || '3800',
+      coordinates: { lat: -37.9105, lng: 145.1362 }
+    },
+    {
+      venue: 'The Commons',
+      suburb: suburb || 'South Melbourne',
+      postcode: postcode || '3205',
+      coordinates: { lat: -37.8314, lng: 144.9631 }
     }
   ];
 
   const eventTemplates = [
     {
-      name: 'Community Markets',
-      description: 'Local artisan markets with fresh produce and handmade goods',
-      discount: { description: 'Free entry, 10% off with SaveSmart app', percentage: 10 }
-    },
-    {
-      name: 'Outdoor Cinema Night',
-      description: 'Classic movies under the stars with food trucks',
-      discount: { description: '$5 off tickets', amount: 5 }
-    },
-    {
-      name: 'Food Festival',
-      description: 'Taste cuisines from around the world',
-      discount: { description: '20% off food vouchers', percentage: 20 }
-    },
-    {
-      name: 'Fitness Bootcamp',
-      description: 'Free outdoor fitness session for all levels',
+      name: 'Melbourne Tech Meetup',
+      description: 'Monthly networking event for tech professionals and developers. Connect with local startups, share ideas, and learn about the latest in software development and innovation.',
       discount: { description: 'Free entry', percentage: 100 }
     },
     {
-      name: 'Art Exhibition',
-      description: 'Local artists showcase their latest works',
-      discount: { description: '$10 off entry', amount: 10 }
+      name: 'Student Career Fair',
+      description: 'Free career fair for university students and recent graduates. Meet employers from tech, finance, and consulting. Bring your resume and network with industry professionals.',
+      discount: { description: 'Free entry for students', percentage: 100 }
+    },
+    {
+      name: 'Coding Workshop: Python for Beginners',
+      description: 'Learn Python programming basics in this hands-on workshop. Perfect for students and young professionals looking to start their coding journey. Laptops provided.',
+      discount: { description: 'Free for students, $10 for others', amount: 10 }
+    },
+    {
+      name: 'Startup Pitch Night',
+      description: 'Watch local startups pitch their ideas to investors and the community. Great networking opportunity for entrepreneurs, developers, and tech enthusiasts.',
+      discount: { description: 'Free entry', percentage: 100 }
+    },
+    {
+      name: 'University Open Day',
+      description: 'Explore campus, meet current students, and learn about courses. Free food, campus tours, and information sessions about student life and career opportunities.',
+      discount: { description: 'Free entry', percentage: 100 }
+    },
+    {
+      name: 'Women in Tech Networking',
+      description: 'Networking event for women in technology and STEM fields. Connect with mentors, share experiences, and build your professional network in a supportive environment.',
+      discount: { description: 'Free entry', percentage: 100 }
+    },
+    {
+      name: 'Hackathon: Build for Good',
+      description: '24-hour hackathon focused on creating tech solutions for social impact. Form teams, code together, and compete for prizes. Free pizza and energy drinks provided!',
+      discount: { description: 'Free entry, prizes worth $5000', percentage: 100 }
+    },
+    {
+      name: 'Graduate Recruitment Session',
+      description: 'Learn about graduate programs at leading tech companies. Hear from recent graduates about their experiences and get tips for applications and interviews.',
+      discount: { description: 'Free entry', percentage: 100 }
+    },
+    {
+      name: 'AI & Machine Learning Workshop',
+      description: 'Introduction to artificial intelligence and machine learning for students and professionals. Hands-on exercises with real datasets. No prior experience required.',
+      discount: { description: '$15 off for students', amount: 15 }
+    },
+    {
+      name: 'Student Entrepreneur Meetup',
+      description: 'Monthly meetup for student entrepreneurs and aspiring founders. Share your startup ideas, get feedback, and connect with like-minded students building businesses.',
+      discount: { description: 'Free entry', percentage: 100 }
     }
   ];
 
@@ -68,6 +105,7 @@ export function generateMockEvents(suburb?: string, postcode?: string): Event[] 
     const daysAhead = index + 1;
     const eventDate = new Date(now);
     eventDate.setDate(eventDate.getDate() + daysAhead);
+    eventDate.setHours(18 + (index % 4), 0, 0, 0); // Events between 6pm-10pm
 
     return {
       eventId: `mock-event-${index + 1}`,
@@ -76,7 +114,7 @@ export function generateMockEvents(suburb?: string, postcode?: string): Event[] 
       date: eventDate.toISOString(),
       location,
       discount: template.discount,
-      externalUrl: `https://example.com/events/${index + 1}`,
+      externalUrl: `https://www.eventbrite.com.au/e/mock-event-${index + 1}`,
       source: 'mock' as const,
       cachedAt: now.toISOString()
     };

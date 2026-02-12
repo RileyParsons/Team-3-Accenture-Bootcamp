@@ -12,6 +12,8 @@ import {
   Plus,
   Check,
   X,
+  Store,
+  TrendingDown,
 } from 'lucide-react';
 import { getRecipe, Recipe, addMealToSlot, MealType } from '@/lib/api';
 
@@ -321,6 +323,89 @@ export default function RecipeDetailPage() {
         </div>
       )}
 
+      {/* Price Comparison Section */}
+      {recipe.storePricing && (
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div className="flex items-center space-x-2 mb-4">
+            <Store className="h-6 w-6 text-green-600" />
+            <h2 className="text-2xl font-bold text-gray-900">Price Comparison</h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Coles Card */}
+            <div
+              className={`border-2 rounded-lg p-4 transition-all ${
+                recipe.storePricing.cheapest === 'coles'
+                  ? 'border-green-500 bg-green-50'
+                  : 'border-gray-200 bg-white'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center space-x-2">
+                  <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center">
+                    <span className="text-white font-bold text-sm">C</span>
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-900">Coles</h3>
+                </div>
+                {recipe.storePricing.cheapest === 'coles' && (
+                  <div className="flex items-center space-x-1 text-green-600 text-sm font-medium">
+                    <TrendingDown className="h-4 w-4" />
+                    <span>Cheapest</span>
+                  </div>
+                )}
+              </div>
+              <div className="text-3xl font-bold text-gray-900">
+                ${recipe.storePricing.coles.toFixed(2)}
+              </div>
+              <p className="text-sm text-gray-500 mt-1">
+                ${(recipe.storePricing.coles / recipe.servings).toFixed(2)} per serving
+              </p>
+            </div>
+
+            {/* Woolworths Card */}
+            <div
+              className={`border-2 rounded-lg p-4 transition-all ${
+                recipe.storePricing.cheapest === 'woolworths'
+                  ? 'border-green-500 bg-green-50'
+                  : 'border-gray-200 bg-white'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center space-x-2">
+                  <div className="w-10 h-10 bg-green-700 rounded-full flex items-center justify-center">
+                    <span className="text-white font-bold text-sm">W</span>
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-900">Woolworths</h3>
+                </div>
+                {recipe.storePricing.cheapest === 'woolworths' && (
+                  <div className="flex items-center space-x-1 text-green-600 text-sm font-medium">
+                    <TrendingDown className="h-4 w-4" />
+                    <span>Cheapest</span>
+                  </div>
+                )}
+              </div>
+              <div className="text-3xl font-bold text-gray-900">
+                ${recipe.storePricing.woolworths.toFixed(2)}
+              </div>
+              <p className="text-sm text-gray-500 mt-1">
+                ${(recipe.storePricing.woolworths / recipe.servings).toFixed(2)} per serving
+              </p>
+            </div>
+          </div>
+
+          {/* Savings Banner */}
+          {recipe.storePricing.savings > 0 && (
+            <div className="mt-4 bg-green-100 border border-green-300 rounded-lg p-3 flex items-center justify-center space-x-2">
+              <TrendingDown className="h-5 w-5 text-green-700" />
+              <p className="text-green-800 font-medium">
+                Save ${recipe.storePricing.savings.toFixed(2)} by shopping at{' '}
+                <span className="font-bold capitalize">{recipe.storePricing.cheapest}</span>
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Ingredients Section */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
         <div className="flex items-center space-x-2 mb-4">
@@ -332,18 +417,69 @@ export default function RecipeDetailPage() {
           {recipe.ingredients.map((ingredient, index) => (
             <div
               key={index}
-              className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0"
+              className="py-3 border-b border-gray-100 last:border-0"
             >
-              <div className="flex-1">
-                <p className="font-medium text-gray-900">{ingredient.name}</p>
-                <p className="text-sm text-gray-500">
-                  {ingredient.quantity} {ingredient.unit}
-                </p>
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex-1">
+                  <p className="font-medium text-gray-900">{ingredient.name}</p>
+                  <p className="text-sm text-gray-500">
+                    {ingredient.quantity} {ingredient.unit}
+                  </p>
+                </div>
               </div>
-              <div className="text-right">
-                <p className="font-semibold text-gray-900">${ingredient.price.toFixed(2)}</p>
-                <p className="text-xs text-gray-500 capitalize">{ingredient.source}</p>
-              </div>
+
+              {/* Side-by-side price comparison for each ingredient */}
+              {ingredient.colesPrice !== undefined && ingredient.woolworthsPrice !== undefined && (
+                <div className="grid grid-cols-2 gap-3 mt-2">
+                  {/* Coles Price */}
+                  <div
+                    className={`flex items-center justify-between px-3 py-2 rounded-lg border ${
+                      ingredient.colesPrice <= ingredient.woolworthsPrice
+                        ? 'border-green-500 bg-green-50'
+                        : 'border-gray-200 bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <div className="w-6 h-6 bg-red-600 rounded-full flex items-center justify-center flex-shrink-0">
+                        <span className="text-white font-bold text-xs">C</span>
+                      </div>
+                      <span className="text-xs text-gray-600">Coles</span>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <span className="font-semibold text-gray-900">
+                        ${ingredient.colesPrice.toFixed(2)}
+                      </span>
+                      {ingredient.colesPrice < ingredient.woolworthsPrice && (
+                        <TrendingDown className="h-3 w-3 text-green-600" />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Woolworths Price */}
+                  <div
+                    className={`flex items-center justify-between px-3 py-2 rounded-lg border ${
+                      ingredient.woolworthsPrice < ingredient.colesPrice
+                        ? 'border-green-500 bg-green-50'
+                        : 'border-gray-200 bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <div className="w-6 h-6 bg-green-700 rounded-full flex items-center justify-center flex-shrink-0">
+                        <span className="text-white font-bold text-xs">W</span>
+                      </div>
+                      <span className="text-xs text-gray-600">Woolworths</span>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <span className="font-semibold text-gray-900">
+                        ${ingredient.woolworthsPrice.toFixed(2)}
+                      </span>
+                      {ingredient.woolworthsPrice < ingredient.colesPrice && (
+                        <TrendingDown className="h-3 w-3 text-green-600" />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>

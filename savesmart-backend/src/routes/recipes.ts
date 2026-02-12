@@ -13,6 +13,8 @@ import { GroceryService } from '../services/grocery.js';
 import { CacheService } from '../utils/cache.js';
 import { Recipe } from '../models/Recipe.js';
 import { generateMockRecipes } from '../utils/mockData.js';
+import { RecipePriceCalculator } from '../utils/RecipePriceCalculator.js';
+import { getAustralianPrice } from '../data/australian-grocery-prices.js';
 
 const router = Router();
 
@@ -98,13 +100,16 @@ router.get('/recipes', async (req: Request, res: Response) => {
       // Update ingredient prices and calculate total cost
       const recipesWithPricing = await Promise.all(
         recipes.map(async (recipe) => {
-          // Update ingredient prices from grocery service
+          // Update ingredient prices from grocery service with both store prices
           const updatedIngredients = await Promise.all(
             recipe.ingredients.map(async (ingredient) => {
               const price = await getGroceryService().getProductPrice(ingredient.name);
+              const priceData = getAustralianPrice(ingredient.name);
               return {
                 ...ingredient,
                 price,
+                colesPrice: priceData.colesPrice,
+                woolworthsPrice: priceData.woolworthsPrice,
               };
             })
           );
@@ -116,7 +121,8 @@ router.get('/recipes', async (req: Request, res: Response) => {
           };
           updatedRecipe.totalCost = calculateTotalCost(updatedRecipe);
 
-          return updatedRecipe;
+          // Add store pricing comparison
+          return RecipePriceCalculator.enrichRecipeWithPricing(updatedRecipe);
         })
       );
 
@@ -283,9 +289,12 @@ router.get('/recipes/:recipeId', async (req: Request, res: Response) => {
     const updatedIngredients = await Promise.all(
       recipe.ingredients.map(async (ingredient) => {
         const price = await getGroceryService().getProductPrice(ingredient.name);
+        const priceData = getAustralianPrice(ingredient.name);
         return {
           ...ingredient,
           price,
+          colesPrice: priceData.colesPrice,
+          woolworthsPrice: priceData.woolworthsPrice,
         };
       })
     );
@@ -297,10 +306,13 @@ router.get('/recipes/:recipeId', async (req: Request, res: Response) => {
     };
     updatedRecipe.totalCost = calculateTotalCost(updatedRecipe);
 
-    // Cache recipe for 24 hours (Requirement 10.8)
-    getCacheService().set(cacheKey, updatedRecipe, 24 * 60 * 60 * 1000);
+    // Add store pricing comparison
+    const enrichedRecipe = RecipePriceCalculator.enrichRecipeWithPricing(updatedRecipe);
 
-    return res.status(200).json(updatedRecipe);
+    // Cache recipe for 24 hours (Requirement 10.8)
+    getCacheService().set(cacheKey, enrichedRecipe, 24 * 60 * 60 * 1000);
+
+    return res.status(200).json(enrichedRecipe);
   } catch (error) {
     console.error('Recipe GET endpoint error:', error);
     return res.status(500).json({

@@ -118,8 +118,8 @@ router.get('/events', async (req: Request, res: Response) => {
     } else if (suburb) {
       location = suburb;
     } else {
-      // Default to a general search if no location specified
-      location = 'Sydney, NSW';
+      // Default to Melbourne if no location specified
+      location = 'Melbourne, VIC';
     }
 
     // Fetch events from Eventbrite service (with fallback to mock data)

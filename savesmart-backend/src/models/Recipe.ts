@@ -9,6 +9,16 @@ export interface Ingredient {
   unit: string;
   price: number;
   source: 'coles' | 'woolworths' | 'mock';
+  // Optional: prices from both stores for comparison
+  colesPrice?: number;
+  woolworthsPrice?: number;
+}
+
+export interface StorePricing {
+  coles: number;
+  woolworths: number;
+  cheapest: 'coles' | 'woolworths';
+  savings: number; // How much you save by choosing the cheaper store
 }
 
 export interface Recipe {
@@ -21,6 +31,7 @@ export interface Recipe {
   dietaryTags: string[];       // ['vegetarian', 'vegan', 'gluten-free']
   ingredients: Ingredient[];
   instructions: string[];
-  totalCost: number;           // calculated from ingredients
+  totalCost: number;           // calculated from ingredients (cheapest option)
+  storePricing?: StorePricing; // Breakdown by store
   cachedAt: string;
 }

@@ -290,6 +290,23 @@ export const sendChatMessage = async (
 
 // New backend API functions for local Express server
 
+export interface Ingredient {
+    name: string;
+    quantity: number;
+    unit: string;
+    price: number;
+    source: 'coles' | 'woolworths' | 'mock';
+    colesPrice?: number;
+    woolworthsPrice?: number;
+}
+
+export interface StorePricing {
+    coles: number;
+    woolworths: number;
+    cheapest: 'coles' | 'woolworths';
+    savings: number;
+}
+
 export interface Recipe {
     recipeId: string;
     name: string;
@@ -301,15 +318,8 @@ export interface Recipe {
     ingredients: Ingredient[];
     instructions: string[];
     totalCost: number;
+    storePricing?: StorePricing;
     cachedAt: string;
-}
-
-export interface Ingredient {
-    name: string;
-    quantity: number;
-    unit: string;
-    price: number;
-    source: 'coles' | 'woolworths' | 'mock';
 }
 
 export interface Event {
