@@ -2,6 +2,40 @@
 
 This directory contains business logic services for the SaveSmart backend.
 
+## GroceryService
+
+The `GroceryService` provides integration with Coles/Woolworths APIs for product pricing. Falls back to mock data when the API is unavailable or not configured.
+
+### Usage Example
+
+```typescript
+import { GroceryService } from './services/grocery.js';
+
+const groceryService = new GroceryService();
+
+// Get price for a specific product
+const price = await groceryService.getProductPrice('Spaghetti');
+console.log(`Price: $${price}`);
+
+// Search for products
+const products = await groceryService.searchProducts('pasta');
+products.forEach(product => {
+  console.log(`${product.name}: $${product.price} per ${product.unit}`);
+});
+```
+
+### Features
+
+- **Automatic fallback** to mock data when API is unavailable (Requirement 14.5)
+- **Product price lookup** by name (Requirement 10.6)
+- **Product search** with query string (Requirement 10.7)
+- **Consistent mock prices** for demonstration purposes
+- **Error logging** with descriptive messages
+
+### Environment Configuration
+
+Optional `GROCERY_API_KEY` in environment variables. If not provided, the service automatically uses mock data. See `.env.example` for configuration.
+
 ## WebhookService
 
 The `WebhookService` provides integration with AI agents for chat, savings plan generation, and meal planning.
