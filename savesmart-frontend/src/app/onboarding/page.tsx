@@ -42,6 +42,7 @@ export default function Onboarding() {
 
   // Get user data from localStorage to pre-fill name
   const getUserData = () => {
+    if (typeof window === 'undefined') return '';
     const userDataStr = localStorage.getItem('savesmart_user');
     if (userDataStr) {
       const userData = JSON.parse(userDataStr);
@@ -183,8 +184,8 @@ export default function Onboarding() {
         console.log('Mock mode: Profile saved to localStorage only');
       }
 
-      // Navigate to chat interface
-      router.push('/chat');
+      // Navigate to meal plan page
+      router.push('/meal-plan');
     } catch (err) {
       console.error('Error saving profile:', err);
       setError(err instanceof Error ? err.message : 'Failed to save profile');
@@ -282,18 +283,16 @@ export default function Onboarding() {
             <div className="space-y-3">
               <button
                 onClick={() => updateProfile({ livingOutOfHome: true })}
-                className={`w-full p-4 rounded-lg border-2 text-left transition-colors ${
-                  profile.livingOutOfHome ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-gray-300'
-                }`}
+                className={`w-full p-4 rounded-lg border-2 text-left transition-colors ${profile.livingOutOfHome ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-gray-300'
+                  }`}
               >
                 <div className="font-semibold">Yes, I live out of home</div>
                 <div className="text-sm text-gray-600">Paying rent or sharing accommodation</div>
               </button>
               <button
                 onClick={() => updateProfile({ livingOutOfHome: false, monthlyRent: 0, rentFrequency: 'weekly' })}
-                className={`w-full p-4 rounded-lg border-2 text-left transition-colors ${
-                  !profile.livingOutOfHome ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-gray-300'
-                }`}
+                className={`w-full p-4 rounded-lg border-2 text-left transition-colors ${!profile.livingOutOfHome ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-gray-300'
+                  }`}
               >
                 <div className="font-semibold">No, I live at home</div>
                 <div className="text-sm text-gray-600">Living with family/parents</div>
@@ -426,9 +425,8 @@ export default function Onboarding() {
 
             <div className="space-y-4">
               {profile.recurringCosts.map((cost, index) => (
-                <div key={index} className={`p-4 rounded-lg space-y-3 border-2 transition-colors ${
-                  cost.amount > 0 ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
-                }`}>
+                <div key={index} className={`p-4 rounded-lg space-y-3 border-2 transition-colors ${cost.amount > 0 ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
+                  }`}>
                   <div className="flex justify-between items-center">
                     <input
                       type="text"

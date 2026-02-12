@@ -4,6 +4,7 @@ import { useState } from "react";
 import { PiggyBank, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { loginUser } from "@/lib/api";
 
 export default function Login() {
   const router = useRouter();
@@ -15,6 +16,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loginError, setLoginError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -33,26 +35,39 @@ export default function Login() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError("");
-    
+
     if (validateForm()) {
-      // Check if user exists in localStorage (dummy backend)
-      const storedUser = localStorage.getItem('savesmart_user');
-      
-      if (storedUser) {
-        const userData = JSON.parse(storedUser);
-        
-        // Simple email check for demo (in real app, backend would verify credentials)
-        if (userData.email === formData.email) {
+      setIsLoading(true);
+
+      try {
+        // Authenticate with backend
+        const userData = await loginUser(formData.email, formData.password);
+
+        if (userData) {
+          // Update localStorage with user data from backend
+          const localUserData = {
+            userId: userData.userId,
+            email: userData.email,
+            name: userData.name,
+            lastLogin: new Date().toISOString()
+          };
+
+          localStorage.setItem('savesmart_user', JSON.stringify(localUserData));
           localStorage.setItem('savesmart_authenticated', 'true');
-          router.push('/chat'); // Existing users skip onboarding
+
+          // Redirect to chat (existing users skip onboarding)
+          router.push('/chat');
         } else {
           setLoginError("Invalid email or password");
         }
-      } else {
-        setLoginError("No account found with this email. Please sign up first.");
+      } catch (error: any) {
+        console.error('Login error:', error);
+        setLoginError(error.message || "Failed to sign in. Please check your credentials and try again.");
+      } finally {
+        setIsLoading(false);
       }
     }
   };
@@ -76,7 +91,7 @@ export default function Login() {
             <PiggyBank className="h-8 w-8 text-green-600" />
             <span className="text-xl font-bold text-gray-900">SaveSmart</span>
           </Link>
-          <Link 
+          <Link
             href="/auth/signup"
             className="text-green-600 hover:text-green-700 font-medium"
           >
@@ -113,11 +128,10 @@ export default function Login() {
                 type="email"
                 value={formData.email}
                 onChange={(e) => updateField('email', e.target.value)}
-                className={`w-full p-3 border-2 rounded-lg focus:outline-none transition-colors ${
-                  errors.email 
-                    ? 'border-red-300 focus:border-red-500' 
-                    : 'border-gray-200 focus:border-green-500'
-                }`}
+                className={`w-full p-3 border-2 rounded-lg focus:outline-none transition-colors ${errors.email
+                  ? 'border-red-300 focus:border-red-500'
+                  : 'border-gray-200 focus:border-green-500'
+                  }`}
                 placeholder="sarah@university.edu.au"
               />
               {errors.email && (
@@ -140,11 +154,10 @@ export default function Login() {
                   type={showPassword ? "text" : "password"}
                   value={formData.password}
                   onChange={(e) => updateField('password', e.target.value)}
-                  className={`w-full p-3 pr-12 border-2 rounded-lg focus:outline-none transition-colors ${
-                    errors.password 
-                      ? 'border-red-300 focus:border-red-500' 
-                      : 'border-gray-200 focus:border-green-500'
-                  }`}
+                  className={`w-full p-3 pr-12 border-2 rounded-lg focus:outline-none transition-colors ${errors.password
+                    ? 'border-red-300 focus:border-red-500'
+                    : 'border-gray-200 focus:border-green-500'
+                    }`}
                   placeholder="••••••••"
                 />
                 <button
