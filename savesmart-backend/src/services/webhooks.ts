@@ -79,6 +79,8 @@ export class WebhookService {
    */
   async callChatAgent(message: string, context?: ChatContext): Promise<string> {
     try {
+      console.log('WebhookService: Starting OpenAI API call');
+
       // Build context-aware system prompt
       let systemPrompt = 'You are a helpful financial assistant for the SaveSmart application. ';
       systemPrompt += 'Provide concise, practical advice about saving money and managing finances.';
@@ -95,9 +97,12 @@ export class WebhookService {
         systemPrompt += '.';
       }
 
+      console.log('WebhookService: Creating OpenAI completion request');
+
       // Create timeout promise
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => {
+          console.log('WebhookService: Request timed out after 30 seconds');
           reject(new Error('Chat agent request timed out after 30 seconds'));
         }, this.CHAT_TIMEOUT);
       });
@@ -113,8 +118,12 @@ export class WebhookService {
         temperature: 0.7,
       });
 
+      console.log('WebhookService: Waiting for OpenAI response...');
+
       // Race between API call and timeout
       const completion = await Promise.race([apiPromise, timeoutPromise]);
+
+      console.log('WebhookService: OpenAI response received');
 
       const response = completion.choices[0]?.message?.content;
       if (!response) {
@@ -124,7 +133,7 @@ export class WebhookService {
       return response;
     } catch (error) {
       if (error instanceof Error) {
-        console.error('Chat agent error:', error.message);
+        console.error('WebhookService: Chat agent error:', error.message);
         throw error;
       }
       throw new Error('Unknown error calling chat agent');

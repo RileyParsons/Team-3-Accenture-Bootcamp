@@ -66,9 +66,20 @@ export default function ChatOverlay({ onClose }: ChatOverlayProps) {
     setIsLoading(true);
 
     try {
-      // Get user ID from localStorage
-      const storedUser = localStorage.getItem('savesmart_user');
-      const userId = storedUser ? JSON.parse(storedUser).userId : 'guest';
+      // Get user ID from localStorage, or use 'guest' as fallback
+      let userId = 'guest';
+      try {
+        const storedUser = localStorage.getItem('savesmart_user');
+        if (storedUser) {
+          const parsed = JSON.parse(storedUser);
+          userId = parsed.userId || 'guest';
+        }
+      } catch (err) {
+        console.warn('Failed to parse stored user, using guest:', err);
+        userId = 'guest';
+      }
+
+      console.log('Sending chat message with userId:', userId);
 
       // Get page context
       const context = getPageContext();

@@ -55,10 +55,13 @@ interface ChatRequest {
  */
 router.post('/chat', async (req: Request, res: Response) => {
   try {
+    console.log('Chat request received:', { userId: req.body.userId, message: req.body.message?.substring(0, 50) });
+
     const { userId, message, context } = req.body as ChatRequest;
 
     // Validate required fields
     if (!userId || typeof userId !== 'string') {
+      console.log('Validation failed: invalid userId');
       return res.status(400).json({
         error: 'Validation failed',
         details: { userId: 'userId is required and must be a string' },
@@ -66,6 +69,7 @@ router.post('/chat', async (req: Request, res: Response) => {
     }
 
     if (!message || typeof message !== 'string') {
+      console.log('Validation failed: invalid message');
       return res.status(400).json({
         error: 'Validation failed',
         details: { message: 'message is required and must be a string' },
@@ -81,8 +85,12 @@ router.post('/chat', async (req: Request, res: Response) => {
         }
       : undefined;
 
+    console.log('Calling OpenAI chat agent...');
+
     // Forward message to Chat_Agent webhook (Requirement 3.1)
     const agentResponse = await getWebhookService().callChatAgent(message, chatContext);
+
+    console.log('OpenAI response received:', agentResponse.substring(0, 100));
 
     // Return response to frontend (Requirement 3.4)
     return res.status(200).json({
@@ -90,16 +98,27 @@ router.post('/chat', async (req: Request, res: Response) => {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
+    console.error('Chat endpoint error:', error);
+
     // Handle timeout errors
     if (error instanceof Error && error.message.includes('timed out')) {
+      console.log('Chat request timed out');
       return res.status(504).json({
         error: 'AI agent timeout',
         message: 'The chat agent took too long to respond. Please try again.',
       });
     }
 
+    // Handle OpenAI API errors
+    if (error instanceof Error) {
+      console.error('Error details:', error.message);
+      return res.status(500).json({
+        error: 'Internal server error',
+        message: error.message || 'Failed to process chat message',
+      });
+    }
+
     // Handle other errors
-    console.error('Chat endpoint error:', error);
     return res.status(500).json({
       error: 'Internal server error',
       message: 'Failed to process chat message',
