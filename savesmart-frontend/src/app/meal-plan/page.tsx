@@ -23,6 +23,7 @@ interface Ingredient {
 export default function MealPlan() {
     const router = useRouter();
     const [step, setStep] = useState<'preferences' | 'plan'>('preferences');
+    const [isGenerating, setIsGenerating] = useState(false);
     const [preferences, setPreferences] = useState({
         allergies: [] as string[],
         calorieGoal: "2000",
@@ -30,8 +31,9 @@ export default function MealPlan() {
         dietType: ""
     });
 
-    // Dummy meal plan data
-    const weeklyMealPlan: MealPlanItem[] = [
+    // Dynamic meal plan data - will be replaced by API call in the future
+    // TODO: Replace with GET /api/meal-plan?userId={userId}&preferences={preferences}
+    const [weeklyMealPlan] = useState<MealPlanItem[]>([
         {
             day: "Monday",
             breakfast: "Oatmeal with berries and honey",
@@ -81,10 +83,11 @@ export default function MealPlan() {
             dinner: "Homemade pizza with salad",
             snack: "Dark chocolate and strawberries"
         }
-    ];
+    ]);
 
-    // Dummy shopping list grouped by store
-    const shoppingList: { store: string; items: Ingredient[] }[] = [
+    // Dynamic shopping list data - will be replaced by API call in the future
+    // TODO: Replace with GET /api/shopping-list?userId={userId}&preferences={preferences}
+    const [shoppingList] = useState<{ store: string; items: Ingredient[] }[]>([
         {
             store: "Woolworths",
             items: [
@@ -120,7 +123,7 @@ export default function MealPlan() {
                 { name: "Cheese (500g)", quantity: "1 block", store: "Aldi", price: 7.00 }
             ]
         }
-    ];
+    ]);
 
     const totalCost = shoppingList.reduce((total, store) =>
         total + store.items.reduce((storeTotal, item) => storeTotal + item.price, 0), 0
@@ -135,8 +138,31 @@ export default function MealPlan() {
         }));
     };
 
-    const handleGeneratePlan = () => {
-        setStep('plan');
+    const handleGeneratePlan = async () => {
+        setIsGenerating(true);
+
+        try {
+            // TODO: Replace with actual API call
+            // const userId = localStorage.getItem('savesmart_user')?.userId;
+            // const response = await fetch(`${API_BASE_URL}/meal-plan`, {
+            //     method: 'POST',
+            //     headers: { 'Content-Type': 'application/json' },
+            //     body: JSON.stringify({ userId, preferences })
+            // });
+            // const data = await response.json();
+            // setWeeklyMealPlan(data.mealPlan);
+            // setShoppingList(data.shoppingList);
+
+            // Simulate API delay
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            setStep('plan');
+        } catch (error) {
+            console.error('Error generating meal plan:', error);
+            // Handle error - could show error message to user
+        } finally {
+            setIsGenerating(false);
+        }
     };
 
     const handleContinueToChat = () => {
@@ -326,8 +352,8 @@ export default function MealPlan() {
                                         key={allergy}
                                         onClick={() => handleAllergyToggle(allergy)}
                                         className={`p-3 rounded-lg border-2 transition-colors ${preferences.allergies.includes(allergy)
-                                                ? 'border-green-500 bg-green-50 text-green-700'
-                                                : 'border-gray-200 hover:border-green-300'
+                                            ? 'border-green-500 bg-green-50 text-green-700'
+                                            : 'border-gray-200 hover:border-green-300'
                                             }`}
                                     >
                                         {allergy}
@@ -395,10 +421,20 @@ export default function MealPlan() {
                         {/* Generate Button */}
                         <button
                             onClick={handleGeneratePlan}
-                            className="w-full py-4 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center justify-center space-x-2"
+                            disabled={isGenerating}
+                            className="w-full py-4 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            <span>Generate My Meal Plan</span>
-                            <ChevronRight className="h-5 w-5" />
+                            {isGenerating ? (
+                                <>
+                                    <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
+                                    <span>Generating Your Plan...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <span>Generate My Meal Plan</span>
+                                    <ChevronRight className="h-5 w-5" />
+                                </>
+                            )}
                         </button>
                     </div>
                 </div>
