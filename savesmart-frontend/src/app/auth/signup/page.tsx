@@ -4,7 +4,8 @@ import { useState } from "react";
 import { PiggyBank, Eye, EyeOff, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { registerUser, generateUserId } from "@/lib/api";
+// No longer need to import API functions - signup only saves to localStorage
+// Database save happens after onboarding completes
 
 export default function Signup() {
   const router = useRouter();
@@ -63,31 +64,32 @@ export default function Signup() {
       setIsLoading(true);
 
       try {
-        // Register user with password
-        const result = await registerUser(
-          formData.email,
-          formData.password,
-          `${formData.firstName} ${formData.lastName}`
-        );
+        // Generate userId locally
+        const userId = `u_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 
-        if (!result || !result.userId) {
-          throw new Error('Failed to create account');
-        }
+        // Hash password for storage (will be saved to DB after onboarding)
+        const encoder = new TextEncoder();
+        const data = encoder.encode(formData.password);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashedPassword = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
-        // Store user data in localStorage for session management
+        // Store user data in localStorage ONLY (no DB save yet)
+        // This will be saved to database after onboarding completes
         const localUserData = {
-          userId: result.userId,
+          userId: userId,
           email: formData.email,
           firstName: formData.firstName,
           lastName: formData.lastName,
           name: `${formData.firstName} ${formData.lastName}`,
+          hashedPassword: hashedPassword,
           createdAt: new Date().toISOString()
         };
 
         localStorage.setItem('savesmart_user', JSON.stringify(localUserData));
         localStorage.setItem('savesmart_authenticated', 'true');
 
-        // Redirect to onboarding
+        // Redirect to onboarding (which will save to DB after completion)
         router.push('/onboarding');
       } catch (error: any) {
         console.error('Signup error:', error);

@@ -94,8 +94,8 @@ export default function Onboarding() {
         throw new Error('User not found. Please sign up first.');
       }
 
-      // Generate userId from email
-      const userId = userData.email.replace('@', '-').replace(/\./g, '-');
+      // Use the userId that was generated during signup
+      const userId = userData.userId;
 
       // Convert frequencies to monthly amounts
       const getMonthlyAmount = (amount: number, frequency: 'weekly' | 'fortnightly' | 'monthly') => {
@@ -149,6 +149,7 @@ export default function Onboarding() {
         userId: userId,
         email: userData.email,
         name: profile.name.trim() || `${userData.firstName} ${userData.lastName}`,
+        hashedPassword: userData.hashedPassword, // Include password hash from signup
         income: Math.round(monthlyIncome),
         incomeFrequency: profile.incomeFrequency,
         savings: profile.currentSavings,

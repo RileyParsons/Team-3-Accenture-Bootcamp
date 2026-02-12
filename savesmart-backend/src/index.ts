@@ -11,6 +11,7 @@ import chatRoutes from './routes/chat.js';
 import profileRoutes from './routes/profile.js';
 import recipeRoutes from './routes/recipes.js';
 import eventsRoutes from './routes/events.js';
+import authRoutes from './routes/auth.js';
 
 const app = express();
 
@@ -29,6 +30,7 @@ app.use('/api', chatRoutes);
 app.use('/api', profileRoutes);
 app.use('/api', recipeRoutes);
 app.use('/api', eventsRoutes);
+app.use('/api', authRoutes);
 
 // Global error handler (must be last)
 app.use(errorHandler);

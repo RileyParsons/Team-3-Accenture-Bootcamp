@@ -178,11 +178,11 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Savings Goal */}
+            {/* Current Savings */}
             <div className="flex items-start space-x-3">
               <DollarSign className="h-5 w-5 text-gray-400 mt-1" />
               <div>
-                <p className="text-sm text-gray-500">Savings Goal</p>
+                <p className="text-sm text-gray-500">Current Savings</p>
                 <p className="text-lg font-medium text-gray-900">
                   ${profile?.savings?.toFixed(2) || '0.00'}
                 </p>
@@ -251,10 +251,10 @@ export default function ProfilePage() {
               />
             </div>
 
-            {/* Savings Goal Input */}
+            {/* Current Savings Input */}
             <div>
               <label htmlFor="savingsGoal" className="block text-sm font-medium text-gray-700 mb-1">
-                Savings Goal ($)
+                Current Savings ($)
               </label>
               <input
                 type="number"
@@ -262,7 +262,7 @@ export default function ProfilePage() {
                 value={editForm.savingsGoal}
                 onChange={(e) => setEditForm({ ...editForm, savingsGoal: parseFloat(e.target.value) || 0 })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                placeholder="Enter your savings goal"
+                placeholder="Enter your current savings"
                 min="0"
                 step="0.01"
               />
