@@ -500,9 +500,13 @@ export class DynamoDBService {
    */
   async createTransaction(transaction: any): Promise<any> {
     try {
-      // For now, store in memory or localStorage since we don't have a transactions table
-      // In production, this would use a DynamoDB table
-      console.log('Transaction created (mock):', transaction);
+      const command = new PutCommand({
+        TableName: this.config.dynamodb.transactionsTable,
+        Item: transaction,
+      });
+
+      await this.docClient.send(command);
+      console.log('Transaction created:', transaction.transactionId);
       return transaction;
     } catch (error) {
       console.error('Error creating transaction:', error);
@@ -520,10 +524,38 @@ export class DynamoDBService {
     type?: string
   ): Promise<any[]> {
     try {
-      // Mock implementation - returns empty array
-      // In production, this would query a DynamoDB transactions table
-      console.log('Getting transactions for user:', userId, { startDate, endDate, type });
-      return [];
+      const params: any = {
+        TableName: this.config.dynamodb.transactionsTable,
+        IndexName: 'UserIdIndex',
+        KeyConditionExpression: 'userId = :userId',
+        ExpressionAttributeValues: {
+          ':userId': userId,
+        },
+      };
+
+      // Add date range filter if provided
+      if (startDate && endDate) {
+        params.KeyConditionExpression += ' AND #date BETWEEN :startDate AND :endDate';
+        params.ExpressionAttributeNames = { '#date': 'date' };
+        params.ExpressionAttributeValues[':startDate'] = startDate;
+        params.ExpressionAttributeValues[':endDate'] = endDate;
+      } else if (startDate) {
+        params.KeyConditionExpression += ' AND #date >= :startDate';
+        params.ExpressionAttributeNames = { '#date': 'date' };
+        params.ExpressionAttributeValues[':startDate'] = startDate;
+      }
+
+      // Add type filter if provided
+      if (type) {
+        params.FilterExpression = '#type = :type';
+        params.ExpressionAttributeNames = { ...params.ExpressionAttributeNames, '#type': 'type' };
+        params.ExpressionAttributeValues[':type'] = type;
+      }
+
+      const command = new QueryCommand(params);
+      const response = await this.docClient.send(command);
+
+      return response.Items || [];
     } catch (error) {
       console.error('Error getting transactions:', error);
       throw new Error(`Failed to get transactions: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -540,30 +572,43 @@ export class DynamoDBService {
     groupBy: 'day' | 'week' | 'month' = 'day'
   ): Promise<any> {
     try {
-      // Mock implementation - returns sample data
-      // In production, this would aggregate data from DynamoDB
-      const now = new Date();
-      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      // Get all transactions for the user in the date range
+      const transactions = await this.getUserTransactions(userId, startDate, endDate);
 
-      const mockData = [];
-      for (let i = 0; i < 30; i++) {
-        const date = new Date(thirtyDaysAgo.getTime() + i * 24 * 60 * 60 * 1000);
-        mockData.push({
-          date: date.toISOString().split('T')[0],
-          income: Math.random() * 100,
-          expenses: Math.random() * 80,
-          savings: Math.random() * 20,
-        });
-      }
+      // Group transactions by date
+      const groupedData = new Map<string, { income: number; expenses: number; savings: number }>();
 
-      return {
-        summary: mockData,
-        totals: {
-          income: mockData.reduce((sum, d) => sum + d.income, 0),
-          expenses: mockData.reduce((sum, d) => sum + d.expenses, 0),
-          savings: mockData.reduce((sum, d) => sum + d.savings, 0),
-        },
+      transactions.forEach((transaction: any) => {
+        const date = transaction.date.split('T')[0]; // Get YYYY-MM-DD
+
+        if (!groupedData.has(date)) {
+          groupedData.set(date, { income: 0, expenses: 0, savings: 0 });
+        }
+
+        const dayData = groupedData.get(date)!;
+
+        if (transaction.type === 'income') {
+          dayData.income += transaction.amount;
+        } else if (transaction.type === 'expense') {
+          dayData.expenses += transaction.amount;
+        } else if (transaction.type === 'savings') {
+          dayData.savings += transaction.amount;
+        }
+      });
+
+      // Convert to array and sort by date
+      const summary = Array.from(groupedData.entries())
+        .map(([date, data]) => ({ date, ...data }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+
+      // Calculate totals
+      const totals = {
+        income: summary.reduce((sum, d) => sum + d.income, 0),
+        expenses: summary.reduce((sum, d) => sum + d.expenses, 0),
+        savings: summary.reduce((sum, d) => sum + d.savings, 0),
       };
+
+      return { summary, totals };
     } catch (error) {
       console.error('Error getting transaction summary:', error);
       throw new Error(`Failed to get transaction summary: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -575,8 +620,13 @@ export class DynamoDBService {
    */
   async deleteTransaction(transactionId: string): Promise<void> {
     try {
-      // Mock implementation
-      console.log('Transaction deleted (mock):', transactionId);
+      const command = new PutCommand({
+        TableName: this.config.dynamodb.transactionsTable,
+        Item: { transactionId },
+      });
+
+      await this.docClient.send(command);
+      console.log('Transaction deleted:', transactionId);
     } catch (error) {
       console.error('Error deleting transaction:', error);
       throw new Error(`Failed to delete transaction: ${error instanceof Error ? error.message : 'Unknown error'}`);

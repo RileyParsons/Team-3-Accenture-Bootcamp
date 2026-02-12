@@ -16,62 +16,6 @@ export default function Chat() {
   const [isLoading, setIsLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
 
-<<<<<<< HEAD
-  const handleSend = async () => {
-    if (!message.trim()) return;
-
-    // Add user message to chat
-    const userMessage = message;
-    setMessages(prev => [...prev, { type: "user", content: userMessage }]);
-    setMessage("");
-
-    // Add loading message
-    setMessages(prev => [...prev, { type: "agent", content: "Thinking..." }]);
-
-    try {
-      // Get userId from localStorage (set during onboarding)
-      const userId = localStorage.getItem("userId") || "demo-sarah-123";
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-      const response = await fetch(`${apiUrl}/chat`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          userId: userId,
-          message: userMessage,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      // Remove loading message and add AI response
-      setMessages(prev => {
-        const withoutLoading = prev.slice(0, -1);
-        return [...withoutLoading, { type: "agent", content: data.reply }];
-      });
-
-      // If there's a plan, show it in a formatted way
-      if (data.plan) {
-        const planMessage = `\n\n📊 **Savings Plan**\n\n**Goal:** ${data.plan.goal}\n**Timeline:** ${data.plan.timeline}\n**Monthly Target:** $${data.plan.monthly}\n\n**Breakdown:**\n${data.plan.breakdown.map((item: any) => `• ${item.category}: $${item.amount} - ${item.tip}`).join('\n')}`;
-        setMessages(prev => [...prev, { type: "agent", content: planMessage }]);
-      }
-    } catch (error) {
-      console.error("Chat error:", error);
-      // Remove loading message and show error
-      setMessages(prev => {
-        const withoutLoading = prev.slice(0, -1);
-        return [...withoutLoading, {
-          type: "agent",
-          content: "Sorry, I'm having trouble connecting to my AI brain right now. The n8n webhook might not be active. Please ask the AI team to activate the workflow!"
-        }];
-      });
-=======
   // Get userId from localStorage on mount
   useEffect(() => {
     const storedUser = localStorage.getItem('savesmart_user');
@@ -132,7 +76,6 @@ export default function Chat() {
       } finally {
         setIsLoading(false);
       }
->>>>>>> main
     }
   };
 
@@ -157,14 +100,8 @@ export default function Chat() {
           {/* Messages */}
           <div className="flex-1 p-6 overflow-y-auto space-y-4">
             {messages.map((msg, index) => (
-<<<<<<< HEAD
-              <div key={index} className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-md p-4 rounded-lg ${
-                  msg.type === 'user'
-=======
               <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-md p-4 rounded-lg ${msg.role === 'user'
->>>>>>> main
                     ? 'bg-green-600 text-white'
                     : 'bg-gray-100 text-gray-900'
                   }`}>

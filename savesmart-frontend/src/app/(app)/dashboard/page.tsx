@@ -17,7 +17,8 @@ import {
   TrendingUp as ChartIcon
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { getProfile, UserData, getTransactionSummary, TransactionSummary } from '@/lib/api';
+import { getProfile, UserData, getTransactionSummary, TransactionSummary, createTransaction, TransactionType, TransactionCategory } from '@/lib/api';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
 
 interface ExpenseBreakdown {
   name: string;
@@ -33,6 +34,15 @@ export default function DashboardPage() {
   const [transactionSummary, setTransactionSummary] = useState<TransactionSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showAddTransaction, setShowAddTransaction] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [transactionForm, setTransactionForm] = useState({
+    type: 'expense' as 'income' | 'expense' | 'savings',
+    category: 'groceries',
+    amount: '',
+    description: '',
+    date: new Date().toISOString().split('T')[0],
+  });
 
   useEffect(() => {
     loadDashboardData();
@@ -70,6 +80,78 @@ export default function DashboardPage() {
       setError('Failed to load dashboard data.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleAddTransaction = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!profile) return;
+
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const storedUser = localStorage.getItem('savesmart_user');
+      if (!storedUser) {
+        setError('No user found. Please log in.');
+        return;
+      }
+
+      const { userId } = JSON.parse(storedUser);
+
+      await createTransaction(
+        userId,
+        transactionForm.type as TransactionType,
+        transactionForm.category as TransactionCategory,
+        parseFloat(transactionForm.amount),
+        transactionForm.description,
+        transactionForm.date
+      );
+
+      // Reset form
+      setTransactionForm({
+        type: 'expense',
+        category: 'groceries',
+        amount: '',
+        description: '',
+        date: new Date().toISOString().split('T')[0],
+      });
+
+      // Close modal
+      setShowAddTransaction(false);
+
+      // Reload dashboard data
+      await loadDashboardData();
+    } catch (err) {
+      console.error('Error adding transaction:', err);
+      setError('Failed to add transaction. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const getCategoryOptions = (type: string) => {
+    if (type === 'income') {
+      return [
+        { value: 'salary', label: 'Salary' },
+        { value: 'allowance', label: 'Allowance' },
+        { value: 'other-income', label: 'Other Income' },
+      ];
+    } else if (type === 'expense') {
+      return [
+        { value: 'rent', label: 'Rent' },
+        { value: 'groceries', label: 'Groceries' },
+        { value: 'fuel', label: 'Fuel' },
+        { value: 'entertainment', label: 'Entertainment' },
+        { value: 'utilities', label: 'Utilities' },
+        { value: 'other-expense', label: 'Other Expense' },
+      ];
+    } else {
+      return [
+        { value: 'savings-deposit', label: 'Savings Deposit' },
+        { value: 'savings-withdrawal', label: 'Savings Withdrawal' },
+      ];
     }
   };
 
@@ -203,6 +285,147 @@ export default function DashboardPage() {
         <p className="text-gray-600 mt-2">Welcome back, {profile.name.split(' ')[0]}! Here's your financial overview.</p>
       </div>
 
+      {/* Add Transaction Modal */}
+      {showAddTransaction && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50 p-4"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)', backdropFilter: 'blur(4px)' }}
+          onClick={() => setShowAddTransaction(false)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close X button */}
+            <button
+              onClick={() => setShowAddTransaction(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+              type="button"
+            >
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Add Transaction</h2>
+
+            <form onSubmit={handleAddTransaction} className="space-y-4">
+              {/* Type */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTransactionForm({ ...transactionForm, type: 'income', category: 'salary' })}
+                    className={`p-2 rounded-lg border-2 text-sm font-medium transition-colors ${
+                      transactionForm.type === 'income'
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    Income
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTransactionForm({ ...transactionForm, type: 'expense', category: 'groceries' })}
+                    className={`p-2 rounded-lg border-2 text-sm font-medium transition-colors ${
+                      transactionForm.type === 'expense'
+                        ? 'border-red-500 bg-red-50 text-red-700'
+                        : 'border-gray-200 text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    Expense
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTransactionForm({ ...transactionForm, type: 'savings', category: 'savings-deposit' })}
+                    className={`p-2 rounded-lg border-2 text-sm font-medium transition-colors ${
+                      transactionForm.type === 'savings'
+                        ? 'border-green-500 bg-green-50 text-green-700'
+                        : 'border-gray-200 text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    Savings
+                  </button>
+                </div>
+              </div>
+
+              {/* Category */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                <select
+                  value={transactionForm.category}
+                  onChange={(e) => setTransactionForm({ ...transactionForm, category: e.target.value })}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 bg-white"
+                >
+                  {getCategoryOptions(transactionForm.type).map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Amount */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Amount ($)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={transactionForm.amount}
+                  onChange={(e) => setTransactionForm({ ...transactionForm, amount: e.target.value })}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 placeholder-gray-400"
+                  placeholder="0.00"
+                  required
+                />
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Description (Optional)</label>
+                <input
+                  type="text"
+                  value={transactionForm.description}
+                  onChange={(e) => setTransactionForm({ ...transactionForm, description: e.target.value })}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 placeholder-gray-400"
+                  placeholder="e.g., Weekly groceries"
+                />
+              </div>
+
+              {/* Date */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
+                <input
+                  type="date"
+                  value={transactionForm.date}
+                  onChange={(e) => setTransactionForm({ ...transactionForm, date: e.target.value })}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900"
+                  required
+                />
+              </div>
+
+              {/* Buttons */}
+              <div className="flex space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowAddTransaction(false)}
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting || !transactionForm.amount}
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? 'Adding...' : 'Add Transaction'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Financial Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {/* Current Savings */}
@@ -296,99 +519,215 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* Savings Tips */}
-          <div className="bg-gradient-to-br from-green-50 to-blue-50 rounded-lg shadow-md p-6">
-            <div className="flex items-center space-x-2 mb-4">
-              <Lightbulb className="h-6 w-6 text-yellow-600" />
-              <h2 className="text-xl font-bold text-gray-900">Savings Tips</h2>
-            </div>
-            <ul className="space-y-3">
-              {savingsTips.map((tip, index) => (
-                <li key={index} className="flex items-start space-x-2">
-                  <span className="text-green-600 font-bold mt-1">•</span>
-                  <span className="text-sm text-gray-700">{tip}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
           {/* Savings Over Time Chart */}
           {transactionSummary && transactionSummary.summary.length > 0 && (
             <div className="bg-white rounded-lg shadow-md p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-2">
                   <ChartIcon className="h-6 w-6 text-blue-600" />
-                  <h2 className="text-xl font-bold text-gray-900">Savings Trend (Last 30 Days)</h2>
+                  <h2 className="text-xl font-bold text-gray-900">Financial Trend & Projection</h2>
                 </div>
+                <button
+                  onClick={() => setShowAddTransaction(true)}
+                  className="flex items-center space-x-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>Add Transaction</span>
+                </button>
               </div>
 
-              <div className="h-64 relative">
-                <svg className="w-full h-full" viewBox="0 0 800 250" preserveAspectRatio="none">
-                  {/* Grid lines */}
-                  <line x1="0" y1="0" x2="800" y2="0" stroke="#e5e7eb" strokeWidth="1" />
-                  <line x1="0" y1="62.5" x2="800" y2="62.5" stroke="#e5e7eb" strokeWidth="1" />
-                  <line x1="0" y1="125" x2="800" y2="125" stroke="#e5e7eb" strokeWidth="1" />
-                  <line x1="0" y1="187.5" x2="800" y2="187.5" stroke="#e5e7eb" strokeWidth="1" />
-                  <line x1="0" y1="250" x2="800" y2="250" stroke="#e5e7eb" strokeWidth="1" />
-
-                  {/* Data lines */}
+              {transactionSummary.summary.length === 1 ? (
+                <div className="h-80 flex items-center justify-center bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                  <div className="text-center p-6">
+                    <ChartIcon className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                    <p className="text-gray-600 font-medium mb-2">Add more transactions to see trends</p>
+                    <p className="text-sm text-gray-500">
+                      You have 1 transaction. Add transactions on different dates to visualize your savings trend over time.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <>
                   {(() => {
                     const data = transactionSummary.summary;
-                    const maxValue = Math.max(...data.map(d => Math.max(d.income, d.expenses, d.savings)));
-                    const points = data.map((d, i) => ({
-                      x: (i / (data.length - 1)) * 800,
-                      yIncome: 250 - (d.income / maxValue) * 250,
-                      yExpenses: 250 - (d.expenses / maxValue) * 250,
-                      ySavings: 250 - (d.savings / maxValue) * 250,
-                    }));
+                    const today = new Date().toISOString().split('T')[0];
 
-                    const createPath = (yKey: 'yIncome' | 'yExpenses' | 'ySavings') =>
-                      points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p[yKey]}`).join(' ');
+                    // Calculate cumulative savings (income - expenses over time)
+                    let cumulativeSavings = 0;
+                    const processedData = data.map((d, index) => {
+                      cumulativeSavings += (d.income - d.expenses);
+                      const date = new Date(d.date);
+                      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+                      return {
+                        date: d.date,
+                        dateLabel: `${monthNames[date.getMonth()]} ${date.getDate()}`,
+                        income: Math.round(d.income),
+                        expenses: Math.round(d.expenses),
+                        savings: Math.max(0, Math.round(cumulativeSavings)),
+                        isToday: d.date === today,
+                        isProjection: false
+                      };
+                    });
+
+                    // Calculate linear regression for projections
+                    const calculateTrend = (values: number[]) => {
+                      const n = values.length;
+                      if (n < 2) return { slope: 0, intercept: values[0] || 0 };
+
+                      const xValues = Array.from({ length: n }, (_, i) => i);
+                      const xMean = xValues.reduce((a, b) => a + b, 0) / n;
+                      const yMean = values.reduce((a, b) => a + b, 0) / n;
+
+                      let numerator = 0;
+                      let denominator = 0;
+
+                      for (let i = 0; i < n; i++) {
+                        numerator += (xValues[i] - xMean) * (values[i] - yMean);
+                        denominator += (xValues[i] - xMean) ** 2;
+                      }
+
+                      const slope = denominator !== 0 ? numerator / denominator : 0;
+                      const intercept = yMean - slope * xMean;
+
+                      return { slope, intercept };
+                    };
+
+                    // Get trends
+                    const incomeTrend = calculateTrend(processedData.map(d => d.income));
+                    const expensesTrend = calculateTrend(processedData.map(d => d.expenses));
+                    const savingsTrend = calculateTrend(processedData.map(d => d.savings));
+
+                    // Create 3 projection points
+                    const lastIndex = processedData.length - 1;
+                    const projections = [];
+                    for (let i = 1; i <= 3; i++) {
+                      const futureIndex = lastIndex + i;
+                      const futureDate = new Date(processedData[lastIndex].date);
+                      futureDate.setDate(futureDate.getDate() + (i * 7)); // Weekly projections
+
+                      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+                      projections.push({
+                        date: futureDate.toISOString().split('T')[0],
+                        dateLabel: `${monthNames[futureDate.getMonth()]} ${futureDate.getDate()}`,
+                        income: Math.max(0, Math.round(incomeTrend.slope * futureIndex + incomeTrend.intercept)),
+                        expenses: Math.max(0, Math.round(expensesTrend.slope * futureIndex + expensesTrend.intercept)),
+                        savings: Math.max(0, Math.round(savingsTrend.slope * futureIndex + savingsTrend.intercept)),
+                        isToday: false,
+                        isProjection: true
+                      });
+                    }
+
+                    const chartData = [...processedData, ...projections];
+                    const todayIndex = processedData.findIndex(d => d.isToday);
 
                     return (
-                      <>
-                        {/* Income line */}
-                        <path
-                          d={createPath('yIncome')}
-                          fill="none"
-                          stroke="#3b82f6"
-                          strokeWidth="2"
-                        />
-                        {/* Expenses line */}
-                        <path
-                          d={createPath('yExpenses')}
-                          fill="none"
-                          stroke="#ef4444"
-                          strokeWidth="2"
-                        />
-                        {/* Savings line */}
-                        <path
-                          d={createPath('ySavings')}
-                          fill="none"
-                          stroke="#10b981"
-                          strokeWidth="3"
-                        />
-                      </>
+                      <div className="h-96">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                            <XAxis
+                              dataKey="dateLabel"
+                              stroke="#6b7280"
+                              style={{ fontSize: '12px' }}
+                            />
+                            <YAxis
+                              stroke="#6b7280"
+                              style={{ fontSize: '12px' }}
+                              tickFormatter={(value) => `$${value}`}
+                            />
+                            <Tooltip
+                              formatter={(value: any) => [`$${value}`, '']}
+                              labelStyle={{ color: '#374151', fontWeight: 600 }}
+                              contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+                            />
+                            <Legend
+                              wrapperStyle={{ paddingTop: '20px' }}
+                              iconType="line"
+                            />
+
+                            {/* Today marker */}
+                            {todayIndex >= 0 && (
+                              <ReferenceLine
+                                x={processedData[todayIndex].dateLabel}
+                                stroke="#10b981"
+                                strokeDasharray="5 5"
+                                strokeWidth={2}
+                                label={{ value: 'TODAY', position: 'top', fill: '#10b981', fontWeight: 700, fontSize: 12 }}
+                              />
+                            )}
+
+                            {/* Actual data lines (solid) */}
+                            <Line
+                              type="monotone"
+                              dataKey="income"
+                              stroke="#3b82f6"
+                              strokeWidth={2}
+                              dot={false}
+                              name="Income"
+                              connectNulls
+                            />
+                            <Line
+                              type="monotone"
+                              dataKey="expenses"
+                              stroke="#ef4444"
+                              strokeWidth={2}
+                              dot={false}
+                              name="Expenses"
+                              connectNulls
+                            />
+                            <Line
+                              type="monotone"
+                              dataKey="savings"
+                              stroke="#10b981"
+                              strokeWidth={3}
+                              dot={false}
+                              name="Cumulative Savings"
+                              connectNulls
+                            />
+
+                            {/* Projection lines (dashed) - only show for projection points */}
+                            <Line
+                              type="monotone"
+                              dataKey={(entry) => entry.isProjection ? entry.income : null}
+                              stroke="#3b82f6"
+                              strokeWidth={2}
+                              strokeDasharray="5 5"
+                              dot={false}
+                              name="Projected Income"
+                              opacity={0.6}
+                              connectNulls
+                            />
+                            <Line
+                              type="monotone"
+                              dataKey={(entry) => entry.isProjection ? entry.expenses : null}
+                              stroke="#ef4444"
+                              strokeWidth={2}
+                              strokeDasharray="5 5"
+                              dot={false}
+                              name="Projected Expenses"
+                              opacity={0.6}
+                              connectNulls
+                            />
+                            <Line
+                              type="monotone"
+                              dataKey={(entry) => entry.isProjection ? entry.savings : null}
+                              stroke="#10b981"
+                              strokeWidth={3}
+                              strokeDasharray="5 5"
+                              dot={false}
+                              name="Projected Savings"
+                              opacity={0.6}
+                              connectNulls
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
                     );
                   })()}
-                </svg>
-              </div>
-
-              {/* Legend */}
-              <div className="flex items-center justify-center space-x-6 mt-4">
-                <div className="flex items-center space-x-2">
-                  <div className="w-4 h-0.5 bg-blue-500"></div>
-                  <span className="text-sm text-gray-600">Income</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-4 h-0.5 bg-red-500"></div>
-                  <span className="text-sm text-gray-600">Expenses</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-4 h-0.5 bg-green-500"></div>
-                  <span className="text-sm text-gray-600">Savings</span>
-                </div>
-              </div>
+                </>
+              )}
 
               {/* Summary stats */}
               <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-gray-200">
@@ -439,53 +778,111 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          {/* Quick Actions */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-4">Quick Actions</h2>
+          {/* Savings Tips with Action Buttons */}
+          <div className="bg-gradient-to-br from-green-50 to-blue-50 rounded-lg shadow-md p-6">
+            <div className="flex items-center space-x-2 mb-4">
+              <Lightbulb className="h-6 w-6 text-yellow-600" />
+              <h2 className="text-lg font-bold text-gray-900">Savings Tips</h2>
+            </div>
             <div className="space-y-3">
-              <button
-                onClick={() => router.push('/recipes')}
-                className="w-full flex items-center justify-between p-3 bg-green-50 hover:bg-green-100 rounded-lg transition-colors group"
-              >
-                <div className="flex items-center space-x-3">
-                  <ShoppingCart className="h-5 w-5 text-green-600" />
-                  <span className="text-sm font-medium text-gray-700">Find Cheaper Recipes</span>
+              {/* Fuel tip with button */}
+              {metrics.expenseBreakdown.find(e =>
+                e.name.toLowerCase().includes('fuel') || e.name.toLowerCase().includes('petrol')
+              ) && (
+                <div>
+                  <p className="text-sm text-gray-700 mb-2">
+                    <span>You spend </span>
+                    <span className="font-semibold">
+                      ${metrics.expenseBreakdown.find(e =>
+                        e.name.toLowerCase().includes('fuel') || e.name.toLowerCase().includes('petrol')
+                      )?.monthlyAmount.toFixed(0)}/month
+                    </span>
+                    <span> on fuel</span>
+                  </p>
+                  <button
+                    onClick={() => router.push('/fuel-prices')}
+                    className="w-full flex items-center justify-between p-3 bg-yellow-50 hover:bg-yellow-100 rounded-lg transition-colors group"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <Fuel className="h-5 w-5 text-yellow-600" />
+                      <span className="text-sm font-medium text-gray-700">Compare Fuel Prices</span>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-yellow-600" />
+                  </button>
                 </div>
-                <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-green-600" />
-              </button>
+              )}
 
-              <button
-                onClick={() => router.push('/events')}
-                className="w-full flex items-center justify-between p-3 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors group"
-              >
-                <div className="flex items-center space-x-3">
-                  <Calendar className="h-5 w-5 text-blue-600" />
-                  <span className="text-sm font-medium text-gray-700">Discover Free Events</span>
+              {/* Grocery tip with button */}
+              {metrics.expenseBreakdown.find(e =>
+                e.name.toLowerCase().includes('grocery') || e.name.toLowerCase().includes('groceries') || e.name.toLowerCase().includes('food')
+              ) && (
+                <div>
+                  <p className="text-sm text-gray-700 mb-2">
+                    <span>Reduce your </span>
+                    <span className="font-semibold">
+                      ${metrics.expenseBreakdown.find(e =>
+                        e.name.toLowerCase().includes('grocery') || e.name.toLowerCase().includes('groceries') || e.name.toLowerCase().includes('food')
+                      )?.monthlyAmount.toFixed(0)}/month
+                    </span>
+                    <span> grocery bill</span>
+                  </p>
+                  <button
+                    onClick={() => router.push('/recipes')}
+                    className="w-full flex items-center justify-between p-3 bg-green-50 hover:bg-green-100 rounded-lg transition-colors group"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <ShoppingCart className="h-5 w-5 text-green-600" />
+                      <span className="text-sm font-medium text-gray-700">Find Cheaper Recipes</span>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-green-600" />
+                  </button>
                 </div>
-                <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-blue-600" />
-              </button>
+              )}
 
-              <button
-                onClick={() => router.push('/fuel-prices')}
-                className="w-full flex items-center justify-between p-3 bg-yellow-50 hover:bg-yellow-100 rounded-lg transition-colors group"
-              >
-                <div className="flex items-center space-x-3">
-                  <Fuel className="h-5 w-5 text-yellow-600" />
-                  <span className="text-sm font-medium text-gray-700">Compare Fuel Prices</span>
+              {/* Location-based events tip with button */}
+              {profile?.location && (
+                <div>
+                  <p className="text-sm text-gray-700 mb-2">
+                    Save on entertainment near {profile.location}
+                  </p>
+                  <button
+                    onClick={() => router.push('/events')}
+                    className="w-full flex items-center justify-between p-3 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors group"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <Calendar className="h-5 w-5 text-blue-600" />
+                      <span className="text-sm font-medium text-gray-700">Discover Free Events</span>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-blue-600" />
+                  </button>
                 </div>
-                <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-yellow-600" />
-              </button>
+              )}
 
-              <button
-                onClick={() => router.push('/profile')}
-                className="w-full flex items-center justify-between p-3 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors group"
-              >
-                <div className="flex items-center space-x-3">
-                  <User className="h-5 w-5 text-purple-600" />
-                  <span className="text-sm font-medium text-gray-700">Update Budget</span>
+              {/* Savings rate tips */}
+              {metrics.savingsRate >= 30 && (
+                <div className="p-3 bg-white rounded-lg">
+                  <p className="text-sm text-gray-700">
+                    🎉 Great job! You're saving over 30% of your income - keep up the excellent work
+                  </p>
                 </div>
-                <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-purple-600" />
-              </button>
+              )}
+
+              {/* General tip with button */}
+              <div>
+                <p className="text-sm text-gray-700 mb-2">
+                  Review your expenses monthly to identify savings opportunities
+                </p>
+                <button
+                  onClick={() => router.push('/profile')}
+                  className="w-full flex items-center justify-between p-3 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors group"
+                >
+                  <div className="flex items-center space-x-3">
+                    <User className="h-5 w-5 text-purple-600" />
+                    <span className="text-sm font-medium text-gray-700">Update Budget</span>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-purple-600" />
+                </button>
+              </div>
             </div>
           </div>
         </div>

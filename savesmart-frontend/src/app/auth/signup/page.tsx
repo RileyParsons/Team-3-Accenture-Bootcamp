@@ -149,7 +149,7 @@ export default function Signup() {
                   type="text"
                   value={formData.firstName}
                   onChange={(e) => updateField('firstName', e.target.value)}
-                  className={`w-full p-3 border-2 rounded-lg focus:outline-none transition-colors ${errors.firstName
+                  className={`w-full p-3 border-2 rounded-lg focus:outline-none transition-colors text-gray-900 placeholder-gray-400 ${errors.firstName
                     ? 'border-red-300 focus:border-red-500'
                     : 'border-gray-200 focus:border-green-500'
                     }`}
@@ -168,7 +168,7 @@ export default function Signup() {
                   type="text"
                   value={formData.lastName}
                   onChange={(e) => updateField('lastName', e.target.value)}
-                  className={`w-full p-3 border-2 rounded-lg focus:outline-none transition-colors ${errors.lastName
+                  className={`w-full p-3 border-2 rounded-lg focus:outline-none transition-colors text-gray-900 placeholder-gray-400 ${errors.lastName
                     ? 'border-red-300 focus:border-red-500'
                     : 'border-gray-200 focus:border-green-500'
                     }`}
@@ -189,7 +189,7 @@ export default function Signup() {
                 type="email"
                 value={formData.email}
                 onChange={(e) => updateField('email', e.target.value)}
-                className={`w-full p-3 border-2 rounded-lg focus:outline-none transition-colors ${errors.email
+                className={`w-full p-3 border-2 rounded-lg focus:outline-none transition-colors text-gray-900 placeholder-gray-400 ${errors.email
                   ? 'border-red-300 focus:border-red-500'
                   : 'border-gray-200 focus:border-green-500'
                   }`}
@@ -210,7 +210,7 @@ export default function Signup() {
                   type={showPassword ? "text" : "password"}
                   value={formData.password}
                   onChange={(e) => updateField('password', e.target.value)}
-                  className={`w-full p-3 pr-12 border-2 rounded-lg focus:outline-none transition-colors ${errors.password
+                  className={`w-full p-3 pr-12 border-2 rounded-lg focus:outline-none transition-colors text-gray-900 placeholder-gray-400 ${errors.password
                     ? 'border-red-300 focus:border-red-500'
                     : 'border-gray-200 focus:border-green-500'
                     }`}
@@ -239,7 +239,7 @@ export default function Signup() {
                   type={showConfirmPassword ? "text" : "password"}
                   value={formData.confirmPassword}
                   onChange={(e) => updateField('confirmPassword', e.target.value)}
-                  className={`w-full p-3 pr-12 border-2 rounded-lg focus:outline-none transition-colors ${errors.confirmPassword
+                  className={`w-full p-3 pr-12 border-2 rounded-lg focus:outline-none transition-colors text-gray-900 placeholder-gray-400 ${errors.confirmPassword
                     ? 'border-red-300 focus:border-red-500'
                     : 'border-gray-200 focus:border-green-500'
                     }`}
