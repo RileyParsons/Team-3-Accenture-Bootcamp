@@ -1,6 +1,7 @@
 // API utility functions for SaveSmart
 
-const API_BASE_URL = 'https://lmj3rtgsbe.execute-api.ap-southeast-2.amazonaws.com/prod';
+// Use local backend instead of AWS Lambda
+const API_BASE_URL = 'http://localhost:3001/api';
 
 // Simple password hashing using Web Crypto API (for demo purposes)
 // In production, this should be done on the backend
@@ -281,6 +282,211 @@ export const sendChatMessage = async (
         }
 
         return data;
+    } catch (error) {
+        console.error('Error sending chat message:', error);
+        throw error;
+    }
+};
+
+// New backend API functions for local Express server
+
+export interface Recipe {
+    recipeId: string;
+    name: string;
+    description: string;
+    imageUrl: string;
+    prepTime: number;
+    servings: number;
+    dietaryTags: string[];
+    ingredients: Ingredient[];
+    instructions: string[];
+    totalCost: number;
+    cachedAt: string;
+}
+
+export interface Ingredient {
+    name: string;
+    quantity: number;
+    unit: string;
+    price: number;
+    source: 'coles' | 'woolworths' | 'mock';
+}
+
+export interface Event {
+    eventId: string;
+    name: string;
+    description: string;
+    date: string;
+    location: {
+        venue: string;
+        suburb: string;
+        postcode: string;
+        coordinates: {
+            lat: number;
+            lng: number;
+        };
+    };
+    discount: {
+        description: string;
+        amount?: number;
+        percentage?: number;
+    };
+    externalUrl: string;
+    source: 'eventbrite' | 'mock';
+    cachedAt: string;
+}
+
+// Get recipes with optional dietary filtering
+export const getRecipes = async (dietaryTags?: string[]): Promise<Recipe[]> => {
+    try {
+        const params = new URLSearchParams();
+        if (dietaryTags && dietaryTags.length > 0) {
+            params.append('dietaryTags', dietaryTags.join(','));
+        }
+
+        const url = `${API_BASE_URL}/recipes${params.toString() ? '?' + params.toString() : ''}`;
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch recipes');
+        }
+
+        const data = await response.json();
+        return data.recipes || [];
+    } catch (error) {
+        console.error('Error fetching recipes:', error);
+        throw error;
+    }
+};
+
+// Get single recipe by ID
+export const getRecipe = async (recipeId: string): Promise<Recipe> => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/recipes/${recipeId}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch recipe');
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error('Error fetching recipe:', error);
+        throw error;
+    }
+};
+
+// Get events with optional location filtering
+export const getEvents = async (suburb?: string, postcode?: string): Promise<Event[]> => {
+    try {
+        const params = new URLSearchParams();
+        if (suburb) params.append('suburb', suburb);
+        if (postcode) params.append('postcode', postcode);
+
+        const url = `${API_BASE_URL}/events${params.toString() ? '?' + params.toString() : ''}`;
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch events');
+        }
+
+        const data = await response.json();
+        return data.events || [];
+    } catch (error) {
+        console.error('Error fetching events:', error);
+        throw error;
+    }
+};
+
+// Update user profile
+export const updateProfile = async (userId: string, updates: Partial<UserData>): Promise<UserData> => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/profile/${userId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(updates),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to update profile');
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error('Error updating profile:', error);
+        throw error;
+    }
+};
+
+// Get user profile
+export const getProfile = async (userId: string): Promise<UserData> => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/profile/${userId}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch profile');
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error('Error fetching profile:', error);
+        throw error;
+    }
+};
+
+// Send chat message with context
+export interface ChatContextData {
+    pageType?: 'dashboard' | 'recipe' | 'event' | 'fuel' | 'profile';
+    dataId?: string;
+    dataName?: string;
+}
+
+export const sendContextualChatMessage = async (
+    userId: string,
+    message: string,
+    context?: ChatContextData
+): Promise<{ response: string; timestamp: string }> => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/chat`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                userId,
+                message,
+                context,
+            }),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to send message');
+        }
+
+        return await response.json();
     } catch (error) {
         console.error('Error sending chat message:', error);
         throw error;

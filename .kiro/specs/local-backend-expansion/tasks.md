@@ -261,7 +261,7 @@ This implementation plan transitions SaveSmart from AWS Lambda/API Gateway to a 
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 15. Implement frontend navigation header
-  - [ ] 15.1 Create navigation header component
+  - [x] 15.1 Create navigation header component
     - Create Header.tsx component with navigation links
     - Add links for Dashboard, Events, Fuel Prices, Recipes, Profile
     - Highlight current page based on route

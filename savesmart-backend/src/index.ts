@@ -1,5 +1,8 @@
-import express from 'express';
+// CRITICAL: Load environment variables BEFORE any other imports
 import dotenv from 'dotenv';
+dotenv.config();
+
+import express from 'express';
 import { getConfig } from './config/env.js';
 import { testConnection, validateTables } from './config/aws.js';
 import { corsMiddleware } from './middleware/cors.js';
@@ -9,9 +12,6 @@ import chatRoutes from './routes/chat.js';
 import profileRoutes from './routes/profile.js';
 import recipeRoutes from './routes/recipes.js';
 import eventsRoutes from './routes/events.js';
-
-// Load environment variables first
-dotenv.config();
 
 const app = express();
 
