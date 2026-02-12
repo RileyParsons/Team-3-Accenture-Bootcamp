@@ -220,7 +220,7 @@ This implementation plan transitions SaveSmart from AWS Lambda/API Gateway to a 
     - Add fallback to mock data on API failure
     - _Requirements: 10.6, 10.7, 14.5_
 
-  - [-] 12.2 Create recipe routes with dietary filtering
+  - [x] 12.2 Create recipe routes with dietary filtering
     - Create routes/recipes.ts with GET /api/recipes
     - Implement GET /api/recipes/:recipeId
     - Support dietaryTags query parameter
@@ -442,7 +442,7 @@ This implementation plan transitions SaveSmart from AWS Lambda/API Gateway to a 
     - _Requirements: 8.4, 9.6, 10.7_
 
 - [ ] 25. Create setup documentation
-  - [ ] 25.1 Write README with setup instructions
+  - [x] 25.1 Write README with setup instructions
     - Document installation steps (npm install)
     - Document environment variable configuration
     - Create .env.example file with all required variables
