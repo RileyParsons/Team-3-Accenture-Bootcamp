@@ -11,6 +11,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "check-env": "node check-env.js",
+    "debug-env": "node debug-env.js",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:unit": "jest --testPathPattern=\\.test\\.ts$",

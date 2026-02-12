@@ -1,6 +1,5 @@
 // CRITICAL: Load environment variables BEFORE any other imports
-import dotenv from 'dotenv';
-dotenv.config();
+import './env-loader.js';
 
 import express from 'express';
 import { getConfig } from './config/env.js';

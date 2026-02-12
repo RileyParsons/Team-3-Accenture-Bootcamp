@@ -5,6 +5,9 @@
  * Fails gracefully with descriptive errors if required variables are missing.
  */
 
+// Ensure env-loader runs first
+import '../env-loader.js';
+
 interface EnvironmentConfig {
   // Server Configuration
   port: number;

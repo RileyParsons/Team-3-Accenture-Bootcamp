@@ -492,5 +492,5 @@ export class DynamoDBService {
   }
 }
 
-// Export singleton instance
-export const dynamoDBService = new DynamoDBService();
+// Note: Do not export singleton instance to avoid initialization before dotenv loads
+// Services should create their own instances using lazy initialization
