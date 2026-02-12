@@ -490,6 +490,98 @@ export class DynamoDBService {
       throw new Error(`Failed to cache fuel stations: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
+
+  /**
+   * Transaction Management Methods
+   */
+
+  /**
+   * Create a new transaction
+   */
+  async createTransaction(transaction: any): Promise<any> {
+    try {
+      // For now, store in memory or localStorage since we don't have a transactions table
+      // In production, this would use a DynamoDB table
+      console.log('Transaction created (mock):', transaction);
+      return transaction;
+    } catch (error) {
+      console.error('Error creating transaction:', error);
+      throw new Error(`Failed to create transaction: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Get user transactions with optional filtering
+   */
+  async getUserTransactions(
+    userId: string,
+    startDate?: string,
+    endDate?: string,
+    type?: string
+  ): Promise<any[]> {
+    try {
+      // Mock implementation - returns empty array
+      // In production, this would query a DynamoDB transactions table
+      console.log('Getting transactions for user:', userId, { startDate, endDate, type });
+      return [];
+    } catch (error) {
+      console.error('Error getting transactions:', error);
+      throw new Error(`Failed to get transactions: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Get transaction summary aggregated by time period
+   */
+  async getTransactionSummary(
+    userId: string,
+    startDate?: string,
+    endDate?: string,
+    groupBy: 'day' | 'week' | 'month' = 'day'
+  ): Promise<any> {
+    try {
+      // Mock implementation - returns sample data
+      // In production, this would aggregate data from DynamoDB
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+      const mockData = [];
+      for (let i = 0; i < 30; i++) {
+        const date = new Date(thirtyDaysAgo.getTime() + i * 24 * 60 * 60 * 1000);
+        mockData.push({
+          date: date.toISOString().split('T')[0],
+          income: Math.random() * 100,
+          expenses: Math.random() * 80,
+          savings: Math.random() * 20,
+        });
+      }
+
+      return {
+        summary: mockData,
+        totals: {
+          income: mockData.reduce((sum, d) => sum + d.income, 0),
+          expenses: mockData.reduce((sum, d) => sum + d.expenses, 0),
+          savings: mockData.reduce((sum, d) => sum + d.savings, 0),
+        },
+      };
+    } catch (error) {
+      console.error('Error getting transaction summary:', error);
+      throw new Error(`Failed to get transaction summary: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Delete a transaction
+   */
+  async deleteTransaction(transactionId: string): Promise<void> {
+    try {
+      // Mock implementation
+      console.log('Transaction deleted (mock):', transactionId);
+    } catch (error) {
+      console.error('Error deleting transaction:', error);
+      throw new Error(`Failed to delete transaction: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
 }
 
 // Note: Do not export singleton instance to avoid initialization before dotenv loads

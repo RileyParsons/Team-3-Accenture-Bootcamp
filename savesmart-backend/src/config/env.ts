@@ -28,6 +28,7 @@ interface EnvironmentConfig {
     eventsTable: string;
     recipesTable: string;
     fuelStationsTable: string;
+    transactionsTable: string;
   };
 
   // OpenAI API Configuration
@@ -92,6 +93,7 @@ export function loadEnvironmentConfig(): EnvironmentConfig {
     const eventsTable = requireEnvVar('DYNAMODB_EVENTS_TABLE', process.env.DYNAMODB_EVENTS_TABLE);
     const recipesTable = requireEnvVar('DYNAMODB_RECIPES_TABLE', process.env.DYNAMODB_RECIPES_TABLE);
     const fuelStationsTable = requireEnvVar('DYNAMODB_FUEL_STATIONS_TABLE', process.env.DYNAMODB_FUEL_STATIONS_TABLE);
+    const transactionsTable = getEnvVar('DYNAMODB_TRANSACTIONS_TABLE', 'savesmart-transactions');
 
     // OpenAI API Key - Required (replacing n8n webhooks temporarily)
     const openaiApiKey = requireEnvVar('OPENAI_API_KEY', process.env.OPENAI_API_KEY);
@@ -116,6 +118,7 @@ export function loadEnvironmentConfig(): EnvironmentConfig {
         eventsTable,
         recipesTable,
         fuelStationsTable,
+        transactionsTable,
       },
       openai: {
         apiKey: openaiApiKey,

@@ -12,6 +12,7 @@ import profileRoutes from './routes/profile.js';
 import recipeRoutes from './routes/recipes.js';
 import eventsRoutes from './routes/events.js';
 import authRoutes from './routes/auth.js';
+import transactionRoutes from './routes/transactions.js';
 
 const app = express();
 
@@ -31,6 +32,7 @@ app.use('/api', profileRoutes);
 app.use('/api', recipeRoutes);
 app.use('/api', eventsRoutes);
 app.use('/api', authRoutes);
+app.use('/api', transactionRoutes);
 
 // Global error handler (must be last)
 app.use(errorHandler);

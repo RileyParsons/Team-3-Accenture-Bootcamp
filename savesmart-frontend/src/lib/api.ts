@@ -492,3 +492,158 @@ export const sendContextualChatMessage = async (
         throw error;
     }
 };
+
+
+// Transaction tracking interfaces
+export type TransactionType = 'income' | 'expense' | 'savings';
+export type TransactionCategory =
+  | 'salary' | 'allowance' | 'other-income'
+  | 'rent' | 'groceries' | 'fuel' | 'entertainment' | 'utilities' | 'other-expense'
+  | 'savings-deposit' | 'savings-withdrawal';
+
+export interface Transaction {
+  transactionId: string;
+  userId: string;
+  type: TransactionType;
+  category: TransactionCategory;
+  amount: number;
+  description?: string;
+  date: string;
+  createdAt: string;
+}
+
+export interface TransactionSummary {
+  summary: {
+    date: string;
+    income: number;
+    expenses: number;
+    savings: number;
+  }[];
+  totals: {
+    income: number;
+    expenses: number;
+    savings: number;
+  };
+}
+
+// Create a new transaction
+export const createTransaction = async (
+  userId: string,
+  type: TransactionType,
+  category: TransactionCategory,
+  amount: number,
+  description?: string,
+  date?: string
+): Promise<Transaction> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/transactions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        userId,
+        type,
+        category,
+        amount,
+        description,
+        date: date || new Date().toISOString(),
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to create transaction');
+    }
+
+    const data = await response.json();
+    return data.transaction;
+  } catch (error) {
+    console.error('Error creating transaction:', error);
+    throw error;
+  }
+};
+
+// Get user transactions
+export const getTransactions = async (
+  userId: string,
+  startDate?: string,
+  endDate?: string,
+  type?: TransactionType
+): Promise<Transaction[]> => {
+  try {
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    if (type) params.append('type', type);
+
+    const url = `${API_BASE_URL}/transactions/${userId}${params.toString() ? '?' + params.toString() : ''}`;
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch transactions');
+    }
+
+    const data = await response.json();
+    return data.transactions || [];
+  } catch (error) {
+    console.error('Error fetching transactions:', error);
+    throw error;
+  }
+};
+
+// Get transaction summary
+export const getTransactionSummary = async (
+  userId: string,
+  startDate?: string,
+  endDate?: string,
+  groupBy: 'day' | 'week' | 'month' = 'day'
+): Promise<TransactionSummary> => {
+  try {
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    params.append('groupBy', groupBy);
+
+    const url = `${API_BASE_URL}/transactions/${userId}/summary?${params.toString()}`;
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch transaction summary');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching transaction summary:', error);
+    throw error;
+  }
+};
+
+// Delete a transaction
+export const deleteTransaction = async (transactionId: string): Promise<void> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/transactions/${transactionId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to delete transaction');
+    }
+  } catch (error) {
+    console.error('Error deleting transaction:', error);
+    throw error;
+  }
+};
