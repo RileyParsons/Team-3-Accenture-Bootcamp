@@ -6,7 +6,7 @@ This implementation plan breaks down the backend authentication feature into dis
 
 ## Tasks
 
-- [-] 1. Set up project structure and dependencies
+- [x] 1. Set up project structure and dependencies
   - Create directory structure for auth Lambda and shared utilities
   - Install dependencies: jsonwebtoken, bcryptjs, uuid, aws-sdk, fast-check (dev)
   - Set up Jest testing framework with fast-check integration
@@ -14,7 +14,7 @@ This implementation plan breaks down the backend authentication feature into dis
   - _Requirements: 10.5_
 
 - [ ] 2. Implement core validation service
-  - [~] 2.1 Create ValidationService class with email and password validation
+  - [x] 2.1 Create ValidationService class with email and password validation
     - Implement email format validation (regex for standard email format)
     - Implement password requirements validation (8 chars, 1 upper, 1 lower, 1 number)
     - Implement request payload validation methods
@@ -34,7 +34,7 @@ This implementation plan breaks down the backend authentication feature into dis
     - _Requirements: 1.1, 1.2_
 
 - [ ] 3. Implement password service
-  - [~] 3.1 Create PasswordService class with bcrypt operations
+  - [x] 3.1 Create PasswordService class with bcrypt operations
     - Implement hashPassword method (bcrypt with 10 salt rounds)
     - Implement verifyPassword method
     - Implement validatePasswordRequirements method
@@ -54,7 +54,7 @@ This implementation plan breaks down the backend authentication feature into dis
     - _Requirements: 1.4, 2.2_
 
 - [ ] 4. Implement token service
-  - [~] 4.1 Create TokenService class with JWT operations
+  - [x] 4.1 Create TokenService class with JWT operations
     - Implement generateAccessToken method (1 hour expiration, includes userId, email, type)
     - Implement generateRefreshToken method (7 day expiration, includes userId, type)
     - Implement validateToken method with signature and expiration checks
@@ -88,7 +88,7 @@ This implementation plan breaks down the backend authentication feature into dis
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 4.1_
 
 - [ ] 5. Implement user repository
-  - [~] 5.1 Create UserRepository class with DynamoDB operations
+  - [x] 5.1 Create UserRepository class with DynamoDB operations
     - Implement createUser method (userId, email, hashedPassword, createdAt)
     - Implement getUserById method
     - Implement getUserByEmail method (uses email-index GSI)
@@ -107,11 +107,11 @@ This implementation plan breaks down the backend authentication feature into dis
     - Test error handling for database failures
     - _Requirements: 1.5, 2.1, 6.1_
 
-- [~] 6. Checkpoint - Ensure all core service tests pass
+- [x] 6. Checkpoint - Ensure all core service tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 7. Implement registration handler
-  - [~] 7.1 Create handleRegister function in auth Lambda
+  - [x] 7.1 Create handleRegister function in auth Lambda
     - Validate request payload (email, password)
     - Check if email already exists (return 409 if exists)
     - Hash password using PasswordService
@@ -136,7 +136,7 @@ This implementation plan breaks down the backend authentication feature into dis
     - _Requirements: 1.1, 1.2, 1.3, 1.6_
 
 - [ ] 8. Implement login handler
-  - [~] 8.1 Create handleLogin function in auth Lambda
+  - [x] 8.1 Create handleLogin function in auth Lambda
     - Validate request payload (email, password)
     - Get user by email via UserRepository
     - Return generic error if user not found
@@ -165,7 +165,7 @@ This implementation plan breaks down the backend authentication feature into dis
     - _Requirements: 2.1, 2.2, 2.3, 2.6_
 
 - [ ] 9. Implement token refresh handler
-  - [~] 9.1 Create handleRefresh function in auth Lambda
+  - [x] 9.1 Create handleRefresh function in auth Lambda
     - Validate request payload (refreshToken)
     - Validate refresh token using TokenService
     - Check token type is "refresh"
@@ -189,7 +189,7 @@ This implementation plan breaks down the backend authentication feature into dis
     - _Requirements: 5.1, 5.4, 5.5_
 
 - [ ] 10. Implement password reset request handler
-  - [~] 10.1 Create handleResetRequest function in auth Lambda
+  - [x] 10.1 Create handleResetRequest function in auth Lambda
     - Validate request payload (email)
     - Get user by email via UserRepository
     - Generate unique reset token (UUID v4)
@@ -210,7 +210,7 @@ This implementation plan breaks down the backend authentication feature into dis
     - _Requirements: 6.1, 6.2, 6.5_
 
 - [ ] 11. Implement password reset completion handler
-  - [~] 11.1 Create handleResetComplete function in auth Lambda
+  - [x] 11.1 Create handleResetComplete function in auth Lambda
     - Validate request payload (resetToken, newPassword)
     - Validate new password meets requirements
     - Hash the provided reset token

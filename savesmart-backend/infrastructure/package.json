@@ -5,9 +5,15 @@
   "type": "module",
   "scripts": {
     "setup": "node setup-dynamodb.js",
-    "verify": "node verify-tables.js"
+    "verify": "node verify-tables.js",
+    "setup-auth": "node setup-auth-dynamodb.js",
+    "setup-jwt": "node setup-jwt-secret.js",
+    "deploy-lambdas": "node deploy-auth-lambdas.js"
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.700.0"
+    "@aws-sdk/client-dynamodb": "^3.700.0",
+    "@aws-sdk/client-ssm": "^3.700.0",
+    "@aws-sdk/client-lambda": "^3.700.0",
+    "@aws-sdk/client-iam": "^3.700.0"
   }
 }

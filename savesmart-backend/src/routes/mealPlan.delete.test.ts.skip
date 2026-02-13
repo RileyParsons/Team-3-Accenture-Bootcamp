@@ -1,0 +1,315 @@
+/**
+ * Unit tests for DELETE /api/meal-plan/:userId/meal endpoint
+ * Requirements: 6.3, 6.5, 6.6, 12.4
+ */
+
+import request from 'supertest';
+import express, { Express } from 'express';
+import mealPlanRoutes from './mealPlan';
+import { DynamoDBService } from '../services/dynamodb';
+import { ShoppingListGenerator } from '../utils/ShoppingListGenerator';
+import type { MealPlan } from '../models/MealPlan';
+
+// Mock dependencies
+jest.mock('../services/dynamodb.js');
+jest.mock('../utils/ShoppingListGenerator.js');
+
+describe('DELETE /api/meal-plan/:userId/meal', () => {
+  let app: Express;
+  let mockGetUser: jest.Mock;
+  let mockUpdateUser: jest.Mock;
+  let mockGetRecipe: jest.Mock;
+  let mockGenerateShoppingList: jest.Mock;
+
+  beforeEach(() => {
+    // Setup Express app
+    app = express();
+    app.use(express.json());
+    app.use('/api', mealPlanRoutes);
+
+    // Setup mocks
+    mockGetUser = jest.fn();
+    mockUpdateUser = jest.fn();
+    mockGetRecipe = jest.fn();
+    mockGenerateShoppingList = jest.fn();
+
+    (DynamoDBService as jest.MockedClass<typeof DynamoDBService>).mockImplementation(() => ({
+      getUser: mockGetUser,
+      updateUser: mockUpdateUser,
+      getRecipe: mockGetRecipe,
+    } as any));
+
+    (ShoppingListGenerator.generateShoppingList as jest.Mock) = mockGenerateShoppingList;
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should remove meal and return updated meal plan with 200 status', async () => {
+    const userId = 'user123';
+    const mockMealPlan: MealPlan = {
+      preferences: {
+        allergies: [],
+        calorieGoal: 2000,
+        culturalPreference: '',
+        dietType: '',
+        notes: '',
+      },
+      days: [
+        {
+          day: 'Monday',
+          meals: [
+            {
+              mealType: 'breakfast',
+              name: 'Pancakes',
+              description: 'Fluffy pancakes',
+              recipeId: 'recipe1',
+              estimatedCalories: 400,
+              estimatedCost: 5.0,
+            },
+            {
+              mealType: 'lunch',
+              name: 'Salad',
+              description: 'Fresh salad',
+              recipeId: 'recipe2',
+              estimatedCalories: 300,
+              estimatedCost: 7.0,
+            },
+          ],
+        },
+      ],
+      totalWeeklyCost: 12.0,
+      nutritionSummary: {
+        averageDailyCalories: 2000,
+        proteinGrams: 100,
+        carbsGrams: 250,
+        fatGrams: 70,
+      },
+      shoppingList: { stores: [], totalCost: 12.0 },
+      notes: '',
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: '2024-01-01T00:00:00.000Z',
+    };
+
+    const mockUser = {
+      userId,
+      mealPlan: {
+        plan: mockMealPlan,
+        preferences: mockMealPlan.preferences,
+        createdAt: '2024-01-01T00:00:00.000Z',
+        updatedAt: '2024-01-01T00:00:00.000Z',
+      },
+    };
+
+    const mockRecipe = {
+      recipeId: 'recipe2',
+      name: 'Salad',
+      ingredients: [
+        { name: 'Lettuce', quantity: 1, unit: 'head', price: 2.0, source: 'coles' },
+      ],
+    };
+
+    const mockUpdatedShoppingList = {
+      stores: [
+        {
+          storeName: 'Coles',
+          items: [
+            { name: 'Flour', quantity: 2, unit: 'cups', price: 1.5, recipeIds: ['recipe1'] },
+          ],
+          subtotal: 1.5,
+        },
+      ],
+      totalCost: 1.5,
+    };
+
+    mockGetUser.mockResolvedValue(mockUser);
+    mockGetRecipe.mockResolvedValue(mockRecipe);
+    mockGenerateShoppingList.mockReturnValue(mockUpdatedShoppingList);
+    mockUpdateUser.mockResolvedValue(undefined);
+
+    const response = await request(app)
+      .delete('/api/meal-plan/user123/meal')
+      .send({
+        day: 'Monday',
+        mealType: 'breakfast',
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body.message).toBe('Meal removed successfully');
+    expect(response.body.mealPlan).toBeDefined();
+    expect(response.body.mealPlan.days[0].meals).toHaveLength(1);
+    expect(response.body.mealPlan.days[0].meals[0].mealType).toBe('lunch');
+    expect(response.body.mealPlan.totalWeeklyCost).toBe(1.5);
+    expect(mockUpdateUser).toHaveBeenCalledWith(userId, expect.any(Object));
+  });
+
+  it('should return 400 if userId is missing', async () => {
+    const response = await request(app)
+      .delete('/api/meal-plan//meal')
+      .send({
+        day: 'Monday',
+        mealType: 'breakfast',
+      });
+
+    expect(response.status).toBe(404); // Express returns 404 for missing route params
+  });
+
+  it('should return 400 if day is missing', async () => {
+    const response = await request(app)
+      .delete('/api/meal-plan/user123/meal')
+      .send({
+        mealType: 'breakfast',
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('ValidationError');
+    expect(response.body.message).toBe('day is required');
+  });
+
+  it('should return 400 if mealType is missing', async () => {
+    const response = await request(app)
+      .delete('/api/meal-plan/user123/meal')
+      .send({
+        day: 'Monday',
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('ValidationError');
+    expect(response.body.message).toBe('mealType is required');
+  });
+
+  it('should return 400 if mealType is invalid', async () => {
+    const response = await request(app)
+      .delete('/api/meal-plan/user123/meal')
+      .send({
+        day: 'Monday',
+        mealType: 'brunch',
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('ValidationError');
+    expect(response.body.message).toContain('mealType must be one of');
+  });
+
+  it('should return 400 if day is invalid', async () => {
+    const response = await request(app)
+      .delete('/api/meal-plan/user123/meal')
+      .send({
+        day: 'Funday',
+        mealType: 'breakfast',
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('ValidationError');
+    expect(response.body.message).toContain('day must be one of');
+  });
+
+  it('should return 404 if user not found', async () => {
+    mockGetUser.mockResolvedValue(null);
+
+    const response = await request(app)
+      .delete('/api/meal-plan/user123/meal')
+      .send({
+        day: 'Monday',
+        mealType: 'breakfast',
+      });
+
+    expect(response.status).toBe(404);
+    expect(response.body.error).toBe('NotFoundError');
+    expect(response.body.message).toBe('User not found');
+  });
+
+  it('should return 404 if no meal plan exists for user', async () => {
+    const mockUser = {
+      userId: 'user123',
+      mealPlan: null,
+    };
+
+    mockGetUser.mockResolvedValue(mockUser);
+
+    const response = await request(app)
+      .delete('/api/meal-plan/user123/meal')
+      .send({
+        day: 'Monday',
+        mealType: 'breakfast',
+      });
+
+    expect(response.status).toBe(404);
+    expect(response.body.error).toBe('NotFoundError');
+    expect(response.body.message).toBe('No meal plan found for user');
+  });
+
+  it('should return 404 if meal not found in specified slot', async () => {
+    const mockMealPlan: MealPlan = {
+      preferences: {
+        allergies: [],
+        calorieGoal: 2000,
+        culturalPreference: '',
+        dietType: '',
+        notes: '',
+      },
+      days: [
+        {
+          day: 'Monday',
+          meals: [
+            {
+              mealType: 'lunch',
+              name: 'Salad',
+              description: 'Fresh salad',
+              recipeId: 'recipe2',
+              estimatedCalories: 300,
+              estimatedCost: 7.0,
+            },
+          ],
+        },
+      ],
+      totalWeeklyCost: 7.0,
+      nutritionSummary: {
+        averageDailyCalories: 2000,
+        proteinGrams: 100,
+        carbsGrams: 250,
+        fatGrams: 70,
+      },
+      shoppingList: { stores: [], totalCost: 7.0 },
+      notes: '',
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: '2024-01-01T00:00:00.000Z',
+    };
+
+    const mockUser = {
+      userId: 'user123',
+      mealPlan: {
+        plan: mockMealPlan,
+      },
+    };
+
+    mockGetUser.mockResolvedValue(mockUser);
+
+    const response = await request(app)
+      .delete('/api/meal-plan/user123/meal')
+      .send({
+        day: 'Monday',
+        mealType: 'breakfast',
+      });
+
+    expect(response.status).toBe(404);
+    expect(response.body.error).toBe('NotFoundError');
+    expect(response.body.message).toContain('No breakfast found for Monday');
+  });
+
+  it('should return 500 if database error occurs', async () => {
+    mockGetUser.mockRejectedValue(new Error('Database connection failed'));
+
+    const response = await request(app)
+      .delete('/api/meal-plan/user123/meal')
+      .send({
+        day: 'Monday',
+        mealType: 'breakfast',
+      });
+
+    expect(response.status).toBe(500);
+    expect(response.body.error).toBe('InternalError');
+    expect(response.body.message).toBe('Failed to remove meal from plan');
+  });
+});

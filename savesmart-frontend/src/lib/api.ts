@@ -1,6 +1,7 @@
 // API utility functions for SaveSmart
 
-const API_BASE_URL = 'https://lmj3rtgsbe.execute-api.ap-southeast-2.amazonaws.com/prod';
+// Use environment variable for API base URL, fallback to production
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://lmj3rtgsbe.execute-api.ap-southeast-2.amazonaws.com/prod';
 
 // Simple password hashing using Web Crypto API (for demo purposes)
 // In production, this should be done on the backend
@@ -104,20 +105,41 @@ export const saveUser = async (
 export const registerUser = async (
     email: string,
     password: string,
-    name: string
+    name: string,
+    profileData?: {
+        income?: number;
+        incomeFrequency?: string;
+        savings?: number;
+        location?: string | null;
+        postcode?: string | null;
+        recurringExpenses?: any[];
+    }
 ): Promise<SaveUserResponse | null> => {
     try {
-        const userId = generateUserId();
+        // Use email-based userId for consistent lookup
+        const userId = email.replace('@', '-').replace(/\./g, '-');
         const hashedPassword = await hashPassword(password);
 
         console.log('Registering user:', { userId, email, name });
 
-        const result = await saveUser({
+        const userData: any = {
             userId,
             email,
             name,
             hashedPassword
-        });
+        };
+
+        // Add profile data if provided (from onboarding)
+        if (profileData) {
+            userData.income = profileData.income || 0;
+            userData.incomeFrequency = profileData.incomeFrequency || 'monthly';
+            userData.savings = profileData.savings || 0;
+            userData.location = profileData.location || null;
+            userData.postcode = profileData.postcode || null;
+            userData.recurringExpenses = profileData.recurringExpenses || [];
+        }
+
+        const result = await saveUser(userData);
 
         console.log('Registration result:', result);
 
@@ -133,38 +155,28 @@ export const registerUser = async (
     }
 };
 
-// Login user (verifies password by fetching user and comparing hash)
+// Login user (authenticates via backend login endpoint)
 export const loginUser = async (
     email: string,
     password: string
 ): Promise<UserData | null> => {
     try {
-        // First, we need to get userId from email
-        // Since we don't have an email lookup endpoint, we'll use localStorage
-        const storedUser = localStorage.getItem('savesmart_user');
-        if (!storedUser) {
-            throw new Error('No account found');
+        // Call backend login endpoint
+        const response = await fetch(`${API_BASE_URL}/auth/login`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email, password }),
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Invalid credentials');
         }
 
-        const localUserData = JSON.parse(storedUser);
-        if (localUserData.email !== email) {
-            throw new Error('Invalid credentials');
-        }
-
-        // Get user from backend
-        const userData = await getUser(localUserData.userId);
-
-        if (!userData) {
-            throw new Error('User not found');
-        }
-
-        // Verify password
-        const hashedPassword = await hashPassword(password);
-        if (userData.hashedPassword !== hashedPassword) {
-            throw new Error('Invalid credentials');
-        }
-
-        return userData;
+        const userData = await response.json();
+        return userData as UserData;
     } catch (error) {
         console.error('Login error:', error);
         throw error;
@@ -285,4 +297,938 @@ export const sendChatMessage = async (
         console.error('Error sending chat message:', error);
         throw error;
     }
+};
+
+// New backend API functions for local Express server
+
+export interface Ingredient {
+    name: string;
+    quantity: number;
+    unit: string;
+    price: number;
+    source: 'coles' | 'woolworths' | 'mock';
+    colesPrice?: number;
+    woolworthsPrice?: number;
+}
+
+export interface StorePricing {
+    coles: number;
+    woolworths: number;
+    cheapest: 'coles' | 'woolworths';
+    savings: number;
+}
+
+export interface Recipe {
+    recipeId: string;
+    name: string;
+    description: string;
+    imageUrl: string;
+    prepTime: number;
+    servings: number;
+    dietaryTags: string[];
+    ingredients: Ingredient[];
+    instructions: string[];
+    totalCost: number;
+    storePricing?: StorePricing;
+    cachedAt: string;
+}
+
+export interface Event {
+    eventId: string;
+    name: string;
+    description: string;
+    date: string;
+    location: {
+        venue: string;
+        suburb: string;
+        postcode: string;
+        coordinates: {
+            lat: number;
+            lng: number;
+        };
+    };
+    discount: {
+        description: string;
+        amount?: number;
+        percentage?: number;
+    };
+    externalUrl: string;
+    source: 'eventbrite' | 'mock';
+    cachedAt: string;
+}
+
+// Get recipes with optional dietary filtering
+export const getRecipes = async (dietaryTags?: string[]): Promise<Recipe[]> => {
+    try {
+        const params = new URLSearchParams();
+        if (dietaryTags && dietaryTags.length > 0) {
+            params.append('dietaryTags', dietaryTags.join(','));
+        }
+
+        const url = `${API_BASE_URL}/recipes${params.toString() ? '?' + params.toString() : ''}`;
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch recipes');
+        }
+
+        const data = await response.json();
+        return data.recipes || [];
+    } catch (error) {
+        console.error('Error fetching recipes:', error);
+        throw error;
+    }
+};
+
+// Get single recipe by ID
+export const getRecipe = async (recipeId: string): Promise<Recipe> => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/recipes/${recipeId}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch recipe');
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error('Error fetching recipe:', error);
+        throw error;
+    }
+};
+
+// Get events with optional location filtering
+export const getEvents = async (suburb?: string, postcode?: string): Promise<Event[]> => {
+    try {
+        const params = new URLSearchParams();
+        if (suburb) params.append('suburb', suburb);
+        if (postcode) params.append('postcode', postcode);
+
+        const url = `${API_BASE_URL}/events${params.toString() ? '?' + params.toString() : ''}`;
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch events');
+        }
+
+        const data = await response.json();
+        return data.events || [];
+    } catch (error) {
+        console.error('Error fetching events:', error);
+        throw error;
+    }
+};
+
+// Update user profile
+export const updateProfile = async (userId: string, updates: Partial<UserData>): Promise<UserData> => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/profile/${userId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(updates),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to update profile');
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error('Error updating profile:', error);
+        throw error;
+    }
+};
+
+// Get user profile
+export const getProfile = async (userId: string): Promise<UserData> => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/profile/${userId}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch profile');
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error('Error fetching profile:', error);
+        throw error;
+    }
+};
+
+// Send chat message with context
+export interface ChatContextData {
+    pageType?: 'dashboard' | 'recipe' | 'event' | 'fuel' | 'profile';
+    dataId?: string;
+    dataName?: string;
+}
+
+export const sendContextualChatMessage = async (
+    userId: string,
+    message: string,
+    context?: ChatContextData
+): Promise<{ response: string; timestamp: string }> => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/chat`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                userId,
+                message,
+                context,
+            }),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to send message');
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error('Error sending chat message:', error);
+        throw error;
+    }
+};
+
+
+// Transaction tracking interfaces
+export type TransactionType = 'income' | 'expense' | 'savings';
+export type TransactionCategory =
+  | 'salary' | 'allowance' | 'other-income'
+  | 'rent' | 'groceries' | 'fuel' | 'entertainment' | 'utilities' | 'other-expense'
+  | 'savings-deposit' | 'savings-withdrawal';
+
+export interface Transaction {
+  transactionId: string;
+  userId: string;
+  type: TransactionType;
+  category: TransactionCategory;
+  amount: number;
+  description?: string;
+  date: string;
+  createdAt: string;
+}
+
+export interface TransactionSummary {
+  summary: {
+    date: string;
+    income: number;
+    expenses: number;
+    savings: number;
+  }[];
+  totals: {
+    income: number;
+    expenses: number;
+    savings: number;
+  };
+}
+
+// Create a new transaction
+export const createTransaction = async (
+  userId: string,
+  type: TransactionType,
+  category: TransactionCategory,
+  amount: number,
+  description?: string,
+  date?: string
+): Promise<Transaction> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/transactions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        userId,
+        type,
+        category,
+        amount,
+        description,
+        date: date || new Date().toISOString(),
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to create transaction');
+    }
+
+    const data = await response.json();
+    return data.transaction;
+  } catch (error) {
+    console.error('Error creating transaction:', error);
+    throw error;
+  }
+};
+
+// Get user transactions
+export const getTransactions = async (
+  userId: string,
+  startDate?: string,
+  endDate?: string,
+  type?: TransactionType
+): Promise<Transaction[]> => {
+  try {
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    if (type) params.append('type', type);
+
+    const url = `${API_BASE_URL}/transactions/${userId}${params.toString() ? '?' + params.toString() : ''}`;
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch transactions');
+    }
+
+    const data = await response.json();
+    return data.transactions || [];
+  } catch (error) {
+    console.error('Error fetching transactions:', error);
+    throw error;
+  }
+};
+
+// Get transaction summary
+export const getTransactionSummary = async (
+  userId: string,
+  startDate?: string,
+  endDate?: string,
+  groupBy: 'day' | 'week' | 'month' = 'day'
+): Promise<TransactionSummary> => {
+  try {
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    params.append('groupBy', groupBy);
+
+    const url = `${API_BASE_URL}/transactions/${userId}/summary?${params.toString()}`;
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch transaction summary');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching transaction summary:', error);
+    throw error;
+  }
+};
+
+// Delete a transaction
+export const deleteTransaction = async (transactionId: string): Promise<void> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/transactions/${transactionId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to delete transaction');
+    }
+  } catch (error) {
+    console.error('Error deleting transaction:', error);
+    throw error;
+  }
+};
+
+// AI-Powered Meal Plan interfaces
+export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+
+export interface MealPlanPreferences {
+  allergies: string[];
+  calorieGoal: number;
+  culturalPreference: string;
+  dietType: string;
+  notes: string;
+}
+
+export interface Meal {
+  mealType: MealType;
+  name: string;
+  description: string;
+  recipeId: string | null;
+  estimatedCalories: number;
+  estimatedCost: number;
+}
+
+export interface MealPlanDay {
+  day: string;
+  meals: Meal[];
+}
+
+export interface NutritionSummary {
+  averageDailyCalories: number;
+  proteinGrams: number;
+  carbsGrams: number;
+  fatGrams: number;
+}
+
+export interface ShoppingListItem {
+  name: string;
+  quantity: number;
+  unit: string;
+  price: number;
+  recipeIds: string[];
+}
+
+export interface ShoppingListStore {
+  storeName: string;
+  items: ShoppingListItem[];
+  subtotal: number;
+}
+
+export interface ShoppingList {
+  stores: ShoppingListStore[];
+  totalCost: number;
+}
+
+export interface MealPlan {
+  preferences: MealPlanPreferences;
+  days: MealPlanDay[];
+  totalWeeklyCost: number;
+  nutritionSummary: NutritionSummary;
+  shoppingList: ShoppingList;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Helper function to normalize meal plan data and ensure all required fields exist
+const normalizeMealPlan = (mealPlan: any): MealPlan => {
+  if (!mealPlan) {
+    console.error('normalizeMealPlan: Received null/undefined meal plan');
+    throw new Error('Invalid meal plan data received from server');
+  }
+
+  // Check if this is the new backend format with recipes array
+  if (mealPlan.recipes && Array.isArray(mealPlan.recipes) && !mealPlan.days) {
+    console.log('normalizeMealPlan: Converting recipes-based response to meal plan format');
+    return convertRecipesToMealPlan(mealPlan);
+  }
+
+  // Log warning if critical fields are missing
+  if (!mealPlan.nutritionSummary) {
+    console.warn('normalizeMealPlan: nutritionSummary missing, using defaults');
+  }
+  if (!mealPlan.shoppingList) {
+    console.warn('normalizeMealPlan: shoppingList missing, using defaults');
+  }
+  if (!mealPlan.days || !Array.isArray(mealPlan.days)) {
+    console.warn('normalizeMealPlan: days array missing or invalid, using empty array');
+  }
+
+  return {
+    preferences: mealPlan.preferences || {
+      allergies: [],
+      calorieGoal: 2000,
+      culturalPreference: 'none',
+      dietType: 'balanced',
+      notes: '',
+    },
+    days: Array.isArray(mealPlan.days) ? mealPlan.days : [],
+    totalWeeklyCost: typeof mealPlan.totalWeeklyCost === 'number' ? mealPlan.totalWeeklyCost : 0,
+    nutritionSummary: mealPlan.nutritionSummary || {
+      averageDailyCalories: 0,
+      proteinGrams: 0,
+      carbsGrams: 0,
+      fatGrams: 0,
+    },
+    shoppingList: mealPlan.shoppingList || {
+      stores: [],
+      totalCost: 0,
+    },
+    notes: mealPlan.notes || '',
+    createdAt: mealPlan.createdAt || new Date().toISOString(),
+    updatedAt: mealPlan.updatedAt || new Date().toISOString(),
+  };
+};
+
+// Helper function to convert recipes-based backend response to meal plan format
+const convertRecipesToMealPlan = (response: any): MealPlan => {
+  const recipes = response.recipes || [];
+  const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  
+  // Calculate total weekly cost from recipes
+  const totalWeeklyCost = recipes.reduce((sum: number, recipe: any) => {
+    const cost = recipe.estimatedCosts?.totalCost || 0;
+    return sum + cost;
+  }, 0);
+
+  // Build shopping list from recipe ingredients
+  const ingredientsMap = new Map<string, any>();
+  recipes.forEach((recipe: any) => {
+    if (recipe.ingredients && Array.isArray(recipe.ingredients)) {
+      recipe.ingredients.forEach((ing: any) => {
+        if (ing.found && ing.colesProductName) {
+          const key = ing.colesProductName;
+          if (ingredientsMap.has(key)) {
+            const existing = ingredientsMap.get(key);
+            existing.quantity += ing.quantity || 1;
+            existing.price += ing.estimatedIngredientCost || 0;
+          } else {
+            ingredientsMap.set(key, {
+              name: ing.colesProductName,
+              quantity: ing.quantity || 1,
+              unit: ing.unit || 'unit',
+              price: ing.estimatedIngredientCost || 0,
+              recipeIds: [recipe.id],
+            });
+          }
+        }
+      });
+    }
+  });
+
+  const shoppingListItems = Array.from(ingredientsMap.values());
+  const shoppingListTotal = shoppingListItems.reduce((sum, item) => sum + item.price, 0);
+
+  // Create a simple 7-day meal plan by distributing recipes
+  const days = DAYS_OF_WEEK.map((day, index) => {
+    const recipe = recipes[index % recipes.length]; // Cycle through recipes
+    const meals = [];
+
+    if (recipe) {
+      // Assign recipe to dinner slot
+      meals.push({
+        mealType: 'dinner' as MealType,
+        name: recipe.title || 'Recipe',
+        description: recipe.whyRecommended || `${recipe.cuisine || 'International'} cuisine`,
+        recipeId: recipe.id || null,
+        estimatedCalories: 0, // Not provided by backend
+        estimatedCost: recipe.estimatedCosts?.costPerServing || 0,
+      });
+    }
+
+    return {
+      day,
+      meals,
+    };
+  });
+
+  // Calculate nutrition summary (estimates since backend doesn't provide)
+  const avgCaloriesPerMeal = 500; // Rough estimate
+  const mealsPerDay = 3;
+  const averageDailyCalories = avgCaloriesPerMeal * mealsPerDay;
+
+  // Build notes from backend assumptions
+  let notes = response.notes || '';
+  if (response.assumptions && Array.isArray(response.assumptions)) {
+    notes = response.assumptions.join(' ');
+  }
+
+  return {
+    preferences: {
+      allergies: [],
+      calorieGoal: 2000,
+      culturalPreference: response.currency === 'AUD' ? 'Australian' : 'none',
+      dietType: 'balanced',
+      notes: notes,
+    },
+    days,
+    totalWeeklyCost,
+    nutritionSummary: {
+      averageDailyCalories,
+      proteinGrams: 0, // Not provided by backend
+      carbsGrams: 0,
+      fatGrams: 0,
+    },
+    shoppingList: {
+      stores: [
+        {
+          storeName: 'Coles',
+          items: shoppingListItems,
+          subtotal: shoppingListTotal,
+        },
+      ],
+      totalCost: shoppingListTotal,
+    },
+    notes: notes,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+};
+
+// Generate AI-powered meal plan from preferences
+export const generateMealPlan = async (
+  userId: string,
+  preferences: MealPlanPreferences
+): Promise<MealPlan> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/meal-plan/generate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        userId,
+        preferences,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to generate meal plan');
+    }
+
+    const data = await response.json();
+    return normalizeMealPlan(data.mealPlan);
+  } catch (error) {
+    console.error('Error generating meal plan:', error);
+    throw error;
+  }
+};
+
+// Get user's current meal plan
+export const getMealPlan = async (userId: string): Promise<MealPlan | null> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/meal-plan/${userId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return null;
+      }
+      throw new Error('Failed to fetch meal plan');
+    }
+
+    const data = await response.json();
+    return data.mealPlan ? normalizeMealPlan(data.mealPlan) : null;
+  } catch (error) {
+    console.error('Error fetching meal plan:', error);
+    throw error;
+  }
+};
+
+// Update user's meal plan
+export const updateMealPlan = async (
+  userId: string,
+  mealPlan: MealPlan
+): Promise<MealPlan> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/meal-plan/${userId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ mealPlan }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to update meal plan');
+    }
+
+    const data = await response.json();
+    return normalizeMealPlan(data.mealPlan);
+  } catch (error) {
+    console.error('Error updating meal plan:', error);
+    throw error;
+  }
+};
+
+// Add a meal to a specific slot in the meal plan
+export const addMealToSlot = async (
+  userId: string,
+  day: string,
+  mealType: MealType,
+  recipeId: string
+): Promise<MealPlan> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/meal-plan/${userId}/meal`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        day,
+        mealType,
+        recipeId,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to add meal to plan');
+    }
+
+    const data = await response.json();
+    return normalizeMealPlan(data.mealPlan);
+  } catch (error) {
+    console.error('Error adding meal to plan:', error);
+    throw error;
+  }
+};
+
+// Remove a meal from a specific slot in the meal plan
+export const removeMealFromSlot = async (
+  userId: string,
+  day: string,
+  mealType: MealType
+): Promise<MealPlan> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/meal-plan/${userId}/meal`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        day,
+        mealType,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to remove meal from plan');
+    }
+
+    const data = await response.json();
+    return normalizeMealPlan(data.mealPlan);
+  } catch (error) {
+    console.error('Error removing meal from plan:', error);
+    throw error;
+  }
+};
+
+// ========================
+// ASYNC GROCERIES WORKFLOW
+// ========================
+// POST /groceries returns jobId (202), poll GET /groceries/{jobId} until SUCCEEDED/ERROR
+
+export type JobStatus = 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'ERROR';
+
+export interface GroceriesJobResponse {
+  ok: boolean;
+  jobId: string;
+}
+
+export interface GroceriesJobStatusResponse {
+  ok: boolean;
+  jobId: string;
+  status: JobStatus;
+  result?: MealPlan;
+  error?: any;
+}
+
+export interface PollOptions {
+  signal?: AbortSignal;
+  timeoutMs?: number;
+}
+
+// Start a groceries job (async)
+// POST /groceries - returns HTTP 202 with { ok: true, jobId: "<uuid>" }
+export const startGroceriesJob = async (
+  userId: string,
+  preferences: MealPlanPreferences
+): Promise<string> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/groceries`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        userId,
+        preferences,
+      }),
+    });
+
+    // Handle 202 Accepted (async job started)
+    if (response.status === 202) {
+      const contentType = response.headers.get('content-type');
+      if (!contentType?.includes('application/json')) {
+        throw new Error('Expected JSON response from server');
+      }
+
+      const data: GroceriesJobResponse = await response.json();
+      
+      if (!data.jobId) {
+        throw new Error('Server did not return a jobId');
+      }
+
+      return data.jobId;
+    }
+
+    // Handle 200 OK (sync response - optional fallback)
+    if (response.status === 200) {
+      const contentType = response.headers.get('content-type');
+      if (contentType?.includes('application/json')) {
+        const data = await response.json();
+        // If server returns a jobId even on 200, use it
+        if (data.jobId) {
+          return data.jobId;
+        }
+        // Otherwise, this is a sync response - not expected in async workflow
+        throw new Error('Unexpected synchronous response from server');
+      }
+    }
+
+    // Handle errors
+    const errorText = await response.text();
+    throw new Error(`Failed to start groceries job: ${response.status} ${errorText}`);
+  } catch (error) {
+    console.error('Error starting groceries job:', error);
+    throw error;
+  }
+};
+
+// Get groceries job status
+// GET /groceries/{jobId} - returns job status and result when complete
+export const getGroceriesJob = async (jobId: string): Promise<GroceriesJobStatusResponse> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/groceries/${jobId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      // 404 might mean job is still starting up
+      if (response.status === 404) {
+        return {
+          ok: false,
+          jobId,
+          status: 'PENDING',
+        };
+      }
+
+      const errorText = await response.text();
+      throw new Error(`Failed to get job status: ${response.status} ${errorText}`);
+    }
+
+    const contentType = response.headers.get('content-type');
+    if (!contentType?.includes('application/json')) {
+      throw new Error('Expected JSON response from server');
+    }
+
+    const data: GroceriesJobStatusResponse = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error getting groceries job:', error);
+    throw error;
+  }
+};
+
+// Poll groceries job until completion
+// Implements exponential backoff: 1s -> 2s -> 4s -> 8s (capped at 8s)
+// Default timeout: 180s (3 minutes)
+export const pollGroceriesJob = async (
+  jobId: string,
+  options: PollOptions = {}
+): Promise<MealPlan> => {
+  const { signal, timeoutMs = 180000 } = options;
+  const startTime = Date.now();
+  const maxBackoff = 8000; // 8 seconds
+  let backoff = 1000; // Start at 1 second
+  let attempt = 0;
+  const maxNotFoundAttempts = 10; // Allow 10 seconds for job to appear
+
+  while (true) {
+    // Check if aborted
+    if (signal?.aborted) {
+      throw new Error('Polling cancelled');
+    }
+
+    // Check timeout
+    if (Date.now() - startTime > timeoutMs) {
+      throw new Error('Job polling timed out after 3 minutes');
+    }
+
+    try {
+      const status = await getGroceriesJob(jobId);
+
+      // Handle SUCCEEDED
+      if (status.status === 'SUCCEEDED') {
+        if (!status.result) {
+          throw new Error('Job succeeded but no result returned');
+        }
+        return normalizeMealPlan(status.result);
+      }
+
+      // Handle ERROR
+      if (status.status === 'ERROR') {
+        const errorMsg = status.error?.message || status.error || 'Job failed';
+        throw new Error(`Meal plan generation failed: ${errorMsg}`);
+      }
+
+      // Handle PENDING/RUNNING - continue polling
+      if (status.status === 'PENDING' || status.status === 'RUNNING') {
+        // Wait with exponential backoff
+        await new Promise(resolve => setTimeout(resolve, backoff));
+        backoff = Math.min(backoff * 2, maxBackoff);
+        attempt++;
+        continue;
+      }
+
+      // Unknown status
+      throw new Error(`Unknown job status: ${status.status}`);
+    } catch (error) {
+      // If 404 and we're still in the grace period, treat as PENDING
+      if (error instanceof Error && error.message.includes('404') && attempt < maxNotFoundAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        attempt++;
+        continue;
+      }
+
+      // Otherwise, rethrow
+      throw error;
+    }
+  }
+};
+
+// Legacy sync function - now uses async workflow internally
+// This maintains backward compatibility with existing code
+export const generateMealPlanAsync = async (
+  userId: string,
+  preferences: MealPlanPreferences,
+  options?: PollOptions
+): Promise<MealPlan> => {
+  // Start the job
+  const jobId = await startGroceriesJob(userId, preferences);
+  
+  // Poll until completion
+  return await pollGroceriesJob(jobId, options);
 };

@@ -10,11 +10,18 @@ This directory contains scripts to set up and verify the AWS infrastructure for 
    ```
 
 2. **IAM Permissions** required:
+
+   **For original setup:**
    - `dynamodb:CreateTable`
    - `dynamodb:DescribeTable`
    - `dynamodb:ListTables`
    - `dynamodb:PutItem`
    - `dynamodb:GetItem`
+
+   **For authentication setup (additional):**
+   - `dynamodb:DeleteTable`
+   - `ssm:PutParameter`
+   - `ssm:GetParameter`
 
 3. **Node.js** version 18 or higher
 
@@ -27,7 +34,11 @@ cd savesmart-backend/infrastructure
 npm install
 ```
 
-### 2. Create DynamoDB Tables
+### 2. Choose Your Setup Path
+
+#### Option A: Original User Management Setup
+
+For the original user management system (without authentication):
 
 ```bash
 npm run setup
@@ -39,6 +50,36 @@ This script will:
 - Add Global Secondary Index `userId-index` to the plans table
 - Configure both tables with on-demand billing mode
 - Verify table creation and access with test read/write operations
+
+#### Option B: Authentication System Setup
+
+For the authentication-enabled system:
+
+**Step 1: Set up DynamoDB table with authentication schema**
+
+```bash
+npm run setup-auth
+```
+
+This script will:
+- Delete existing `savesmart-users` table if it exists
+- Create new table with authentication schema:
+  - Partition Key: `userId` (String)
+  - Global Secondary Index: `email-index` on `email` field
+- Wait for table to become active
+
+**Step 2: Set up JWT secret in Parameter Store**
+
+```bash
+npm run setup-jwt
+```
+
+This script will:
+- Generate a random 256-bit secret (base64 encoded)
+- Store it in Parameter Store as `/savesmart/jwt-secret` (SecureString)
+- Verify the secret was stored correctly
+
+**Note:** For complete authentication deployment instructions, see `../AUTH_DEPLOYMENT.md`
 
 **Expected Output:**
 ```
@@ -80,7 +121,7 @@ This will display:
 
 ## Table Schemas
 
-### savesmart-users
+### savesmart-users (Original Schema)
 
 **Purpose:** Store user profile data
 
@@ -104,6 +145,33 @@ This will display:
 - `createdAt`: ISO 8601 timestamp (String)
 
 **Billing:** On-demand (pay per request)
+
+### savesmart-users (Authentication Schema)
+
+**Purpose:** Store user authentication data
+
+**Keys:**
+- Partition Key: `userId` (String)
+
+**Global Secondary Index:**
+- Index Name: `email-index`
+- Partition Key: `email`
+- Projection: ALL
+
+**Attributes:**
+- `userId`: Unique user identifier (UUID v4)
+- `email`: User's email address (indexed for login lookups)
+- `hashedPassword`: Bcrypt hash of user's password
+- `createdAt`: ISO 8601 timestamp (String)
+- `resetToken`: Bcrypt hash of password reset token (optional)
+- `resetTokenExpiry`: ISO 8601 timestamp for token expiration (optional)
+
+**Billing:** On-demand (pay per request)
+
+**Security Notes:**
+- Passwords are hashed using bcrypt with 10 salt rounds
+- Reset tokens are hashed before storage
+- Email is indexed via GSI for efficient login lookups
 
 ### savesmart-plans
 
