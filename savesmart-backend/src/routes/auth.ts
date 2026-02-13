@@ -135,4 +135,66 @@ router.get('/test_users/:userId', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * POST /api/auth/login
+ *
+ * Simple login endpoint for email/password authentication
+ */
+router.post('/auth/login', async (req: Request, res: Response) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: {
+          email: !email ? 'email is required' : undefined,
+          password: !password ? 'password is required' : undefined,
+        },
+      });
+    }
+
+    console.log('Login attempt for email:', email);
+
+    // Get user by email from DynamoDB
+    const user = await getDBService().getUserByEmail(email);
+
+    if (!user) {
+      console.log('User not found:', email);
+      return res.status(401).json({
+        error: 'Invalid credentials',
+      });
+    }
+
+    // For demo purposes, we're using simple SHA-256 hashing (same as frontend)
+    // In production, use bcrypt or similar
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashedPassword = hashArray.map((b: number) => b.toString(16).padStart(2, '0')).join('');
+
+    // Verify password (comparing hashes)
+    if (user.hashedPassword !== hashedPassword) {
+      console.log('Invalid password for user:', email);
+      return res.status(401).json({
+        error: 'Invalid credentials',
+      });
+    }
+
+    console.log('Login successful for user:', email);
+
+    // Return user data (exclude hashedPassword)
+    const { hashedPassword: _, ...safeUserData } = user;
+
+    return res.status(200).json(safeUserData);
+  } catch (error) {
+    console.error('Login error:', error);
+    return res.status(500).json({
+      error: 'Authentication failed',
+      message: error instanceof Error ? error.message : 'Failed to authenticate',
+    });
+  }
+});
+
 export default router;

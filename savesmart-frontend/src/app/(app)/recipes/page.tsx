@@ -1,21 +1,31 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Clock, Users, DollarSign, Loader2, Search } from 'lucide-react';
-import { getRecipes, Recipe } from '@/lib/api';
+import { Loader2, Sparkles } from 'lucide-react';
+import { startGroceriesJob, pollGroceriesJob } from '@/lib/api';
 
 export default function RecipesPage() {
   const router = useRouter();
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [filteredRecipes, setFilteredRecipes] = useState<Recipe[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+
+  const abortRef = useRef<AbortController | null>(null);
+
   const [selectedDietaryFilters, setSelectedDietaryFilters] = useState<string[]>([]);
   const [selectedCuisineFilter, setSelectedCuisineFilter] = useState<string>('all');
   const [selectedMealTypeFilter, setSelectedMealTypeFilter] = useState<string>('all');
   const [selectedPriceFilter, setSelectedPriceFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+      abortRef.current = null;
+    };
+  }, []);
 
   const dietaryOptions = [
     { value: 'vegetarian', label: 'Vegetarian' },
@@ -48,124 +58,6 @@ export default function RecipesPage() {
     { value: 'premium', label: 'Premium ($20+)' },
   ];
 
-  useEffect(() => {
-    loadRecipes();
-  }, []);
-
-  useEffect(() => {
-    applyFilters();
-  }, [recipes, selectedDietaryFilters, selectedCuisineFilter, selectedMealTypeFilter, selectedPriceFilter, searchQuery]);
-
-  const loadRecipes = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const data = await getRecipes();
-      setRecipes(data);
-      setFilteredRecipes(data);
-    } catch (err) {
-      console.error('Error loading recipes:', err);
-      setError('Failed to load recipes. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const applyFilters = () => {
-    let filtered = [...recipes];
-
-    // Search filter
-    if (searchQuery) {
-      filtered = filtered.filter((recipe) =>
-        recipe.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        recipe.description.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
-    // Dietary filters
-    if (selectedDietaryFilters.length > 0) {
-      filtered = filtered.filter((recipe) =>
-        selectedDietaryFilters.every((filter) => recipe.dietaryTags.includes(filter))
-      );
-    }
-
-    // Cuisine filter
-    if (selectedCuisineFilter !== 'all') {
-      filtered = filtered.filter((recipe) => {
-        const name = recipe.name.toLowerCase();
-        const description = recipe.description.toLowerCase();
-        const recipeId = recipe.recipeId.toLowerCase();
-
-        switch (selectedCuisineFilter) {
-          case 'italian':
-            return name.includes('pasta') || name.includes('pizza') || name.includes('carbonara') ||
-                   name.includes('bolognese') || name.includes('caprese') || recipeId.includes('italian');
-          case 'asian':
-            return name.includes('stir fry') || name.includes('rice') || name.includes('noodle') ||
-                   name.includes('thai') || name.includes('teriyaki') || name.includes('pad thai') ||
-                   name.includes('fried rice') || recipeId.includes('asian');
-          case 'mexican':
-            return name.includes('taco') || name.includes('burrito') || name.includes('quesadilla') ||
-                   name.includes('enchilada') || recipeId.includes('mexican');
-          case 'indian':
-            return name.includes('curry') || name.includes('biryani') || name.includes('butter chicken') ||
-                   recipeId.includes('indian');
-          case 'mediterranean':
-            return name.includes('falafel') || name.includes('hummus') || name.includes('moussaka') ||
-                   name.includes('paella') || name.includes('mediterranean') || recipeId.includes('mediterranean');
-          case 'american':
-            return name.includes('burger') || name.includes('mac and cheese') || name.includes('pot pie') ||
-                   name.includes('shepherd') || name.includes('fish and chips') || recipeId.includes('comfort');
-          default:
-            return true;
-        }
-      });
-    }
-
-    // Meal type filter
-    if (selectedMealTypeFilter !== 'all') {
-      filtered = filtered.filter((recipe) => {
-        const recipeId = recipe.recipeId.toLowerCase();
-        const name = recipe.name.toLowerCase();
-
-        switch (selectedMealTypeFilter) {
-          case 'breakfast':
-            return recipeId.includes('breakfast') || name.includes('eggs') || name.includes('oats') ||
-                   name.includes('toast') || name.includes('avocado toast');
-          case 'lunch':
-            return recipeId.includes('lunch') || name.includes('salad') || name.includes('wrap') ||
-                   name.includes('sandwich');
-          case 'dinner':
-            return recipeId.includes('dinner') || (!recipeId.includes('breakfast') && !recipeId.includes('lunch') &&
-                   !recipeId.includes('snack') && !name.includes('salad') && !name.includes('wrap'));
-          case 'snack':
-            return recipeId.includes('snack') || name.includes('hummus') || name.includes('energy balls') ||
-                   name.includes('wings');
-          default:
-            return true;
-        }
-      });
-    }
-
-    // Price filter
-    if (selectedPriceFilter !== 'all') {
-      filtered = filtered.filter((recipe) => {
-        switch (selectedPriceFilter) {
-          case 'budget':
-            return recipe.totalCost <= 10;
-          case 'moderate':
-            return recipe.totalCost > 10 && recipe.totalCost <= 20;
-          case 'premium':
-            return recipe.totalCost > 20;
-          default:
-            return true;
-        }
-      });
-    }
-
-    setFilteredRecipes(filtered);
-  };
-
   const toggleDietaryFilter = (filter: string) => {
     setSelectedDietaryFilters((prev) =>
       prev.includes(filter) ? prev.filter((f) => f !== filter) : [...prev, filter]
@@ -180,44 +72,98 @@ export default function RecipesPage() {
     setSearchQuery('');
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-green-600" />
-      </div>
-    );
-  }
+  const handleGenerateMealPlan = async () => {
+    // Cancel any existing run
+    abortRef.current?.abort();
+
+    const newAbortController = new AbortController();
+    abortRef.current = newAbortController;
+
+    setIsGenerating(true);
+    setError(null);
+    setCurrentJobId(null);
+
+    try {
+      // Get userId from localStorage (source of truth)
+      const storedUser = localStorage.getItem('savesmart_user');
+      if (!storedUser) throw new Error('Please log in to generate a meal plan');
+
+      const parsed = JSON.parse(storedUser);
+      const userId: string | undefined = parsed?.userId;
+      if (!userId) throw new Error('Missing userId. Please log in again.');
+
+      // Build preferences from selected filters
+      const preferences = {
+        allergies: selectedDietaryFilters.includes('gluten-free') ? ['gluten'] : [],
+        calorieGoal: 2000,
+        culturalPreference: selectedCuisineFilter !== 'all' ? selectedCuisineFilter : 'none',
+        dietType: selectedDietaryFilters.includes('vegan')
+          ? 'vegan'
+          : selectedDietaryFilters.includes('vegetarian')
+          ? 'vegetarian'
+          : 'balanced',
+        notes: `Meal type: ${selectedMealTypeFilter}, Price range: ${selectedPriceFilter}${
+          searchQuery ? `, Notes: ${searchQuery}` : ''
+        }`,
+      };
+
+      // Step 1: Start job (POST /groceries) -> {jobId}
+      const jobId = await startGroceriesJob(userId, preferences);
+      setCurrentJobId(jobId);
+
+      // Step 2: Poll for completion (GET /groceries/{jobId})
+      await pollGroceriesJob(jobId, {
+        signal: newAbortController.signal,
+        timeoutMs: 240000, // 4 mins to be safe
+      });
+
+      // IMPORTANT: navigate with jobId so meal-plan can load the generated result
+      router.push(`/meal-plan?jobId=${encodeURIComponent(jobId)}`);
+    } catch (err) {
+      console.error('Error generating meal plan:', err);
+
+      if (newAbortController.signal.aborted) {
+        setError('Meal plan generation was cancelled');
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to generate meal plan. Please try again.');
+      }
+    } finally {
+      setIsGenerating(false);
+      setCurrentJobId(null);
+      abortRef.current = null;
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       {/* Header */}
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Browse Recipes</h1>
-          <p className="text-gray-900">Find budget-friendly recipes with real-time pricing</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Generate Meal Plan</h1>
+          <p className="text-gray-600">Choose your preferences, then generate a personalized meal plan</p>
         </div>
         <button
           onClick={() => router.push('/meal-plan')}
-          className="px-6 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors"
+          className="px-6 py-3 bg-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-300 transition-colors"
         >
           View Meal Plan
         </button>
       </div>
 
-      {/* Search Bar */}
+      {/* Notes */}
       <div className="mb-6">
         <input
           type="text"
-          placeholder="Search recipes by name or description..."
+          placeholder="Add notes or specific requests (optional)..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900 placeholder-gray-400"
+          disabled={isGenerating}
+          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900 placeholder-gray-400 disabled:bg-gray-100 disabled:cursor-not-allowed"
         />
       </div>
 
       {/* Filters */}
-      <div className="mb-6 space-y-4">
-        {/* Dietary Filters */}
+      <div className="mb-8 space-y-4">
         <div>
           <h2 className="text-sm font-medium text-gray-900 mb-3">Dietary Preferences</h2>
           <div className="flex flex-wrap gap-2">
@@ -225,7 +171,8 @@ export default function RecipesPage() {
               <button
                 key={option.value}
                 onClick={() => toggleDietaryFilter(option.value)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                disabled={isGenerating}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   selectedDietaryFilters.includes(option.value)
                     ? 'bg-green-600 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -237,7 +184,6 @@ export default function RecipesPage() {
           </div>
         </div>
 
-        {/* Cuisine Filter */}
         <div>
           <h2 className="text-sm font-medium text-gray-900 mb-3">Cuisine Type</h2>
           <div className="flex flex-wrap gap-2">
@@ -245,7 +191,8 @@ export default function RecipesPage() {
               <button
                 key={option.value}
                 onClick={() => setSelectedCuisineFilter(option.value)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                disabled={isGenerating}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   selectedCuisineFilter === option.value
                     ? 'bg-green-600 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -257,7 +204,6 @@ export default function RecipesPage() {
           </div>
         </div>
 
-        {/* Meal Type Filter */}
         <div>
           <h2 className="text-sm font-medium text-gray-900 mb-3">Meal Type</h2>
           <div className="flex flex-wrap gap-2">
@@ -265,7 +211,8 @@ export default function RecipesPage() {
               <button
                 key={option.value}
                 onClick={() => setSelectedMealTypeFilter(option.value)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                disabled={isGenerating}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   selectedMealTypeFilter === option.value
                     ? 'bg-green-600 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -277,7 +224,6 @@ export default function RecipesPage() {
           </div>
         </div>
 
-        {/* Price Filter */}
         <div>
           <h2 className="text-sm font-medium text-gray-900 mb-3">Price Range</h2>
           <div className="flex flex-wrap gap-2">
@@ -285,7 +231,8 @@ export default function RecipesPage() {
               <button
                 key={option.value}
                 onClick={() => setSelectedPriceFilter(option.value)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                disabled={isGenerating}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   selectedPriceFilter === option.value
                     ? 'bg-green-600 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -297,16 +244,16 @@ export default function RecipesPage() {
           </div>
         </div>
 
-        {/* Clear Filters Button */}
-        {(selectedDietaryFilters.length > 0 || selectedCuisineFilter !== 'all' ||
-          selectedMealTypeFilter !== 'all' || selectedPriceFilter !== 'all' || searchQuery) && (
-          <div className="flex items-center justify-between pt-2">
-            <p className="text-sm text-gray-600">
-              Showing {filteredRecipes.length} of {recipes.length} recipes
-            </p>
+        {(selectedDietaryFilters.length > 0 ||
+          selectedCuisineFilter !== 'all' ||
+          selectedMealTypeFilter !== 'all' ||
+          selectedPriceFilter !== 'all' ||
+          searchQuery) && (
+          <div className="flex items-center justify-end pt-2">
             <button
               onClick={clearAllFilters}
-              className="text-sm text-green-600 hover:text-green-700 font-medium"
+              disabled={isGenerating}
+              className="text-sm text-green-600 hover:text-green-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Clear all filters
             </button>
@@ -314,83 +261,55 @@ export default function RecipesPage() {
         )}
       </div>
 
-      {/* Error Message */}
       {error && (
-        <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
-          {error}
+        <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-red-700 mb-2">{error}</p>
+          <button onClick={handleGenerateMealPlan} className="text-sm text-red-600 hover:text-red-700 font-medium">
+            Try Again
+          </button>
         </div>
       )}
 
-      {/* Recipes Grid */}
-      {filteredRecipes.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-gray-900 mb-4">No recipes found matching your filters.</p>
-          <button
-            onClick={clearAllFilters}
-            className="text-green-600 hover:text-green-700 font-medium"
-          >
-            Clear all filters
-          </button>
+      <div className="bg-gradient-to-br from-green-50 to-blue-50 rounded-lg p-8 mb-8">
+        <div className="max-w-2xl mx-auto text-center">
+          <Sparkles className="h-12 w-12 text-green-600 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">Ready to Generate Your Meal Plan?</h2>
+          <p className="text-gray-600 mb-6">
+            Based on your preferences, we'll create a personalized 7-day meal plan and a shopping list.
+          </p>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredRecipes.map((recipe) => (
-            <div
-              key={recipe.recipeId}
-              onClick={() => router.push(`/recipes/${recipe.recipeId}`)}
-              className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
-            >
-              {/* Recipe Image */}
-              <div className="h-48 bg-gray-200 relative">
-                {recipe.imageUrl ? (
-                  <img
-                    src={recipe.imageUrl}
-                    alt={recipe.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-400">
-                    No image
-                  </div>
-                )}
-                {/* Dietary Tags */}
-                {recipe.dietaryTags.length > 0 && (
-                  <div className="absolute top-2 right-2 flex flex-wrap gap-1">
-                    {recipe.dietaryTags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="px-2 py-1 bg-white/90 text-xs font-medium text-gray-700 rounded"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
+      </div>
 
-              {/* Recipe Info */}
-              <div className="p-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">{recipe.name}</h3>
-                <p className="text-sm text-gray-600 mb-4 line-clamp-2">{recipe.description}</p>
+      <div className="flex justify-center pb-6">
+        <button
+          onClick={handleGenerateMealPlan}
+          disabled={isGenerating}
+          className="px-8 py-4 bg-green-600 text-white text-lg font-semibold rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center space-x-3 shadow-lg hover:shadow-xl"
+        >
+          {isGenerating ? (
+            <>
+              <Loader2 className="h-6 w-6 animate-spin" />
+              <span>Generating Meal Plan...</span>
+            </>
+          ) : (
+            <>
+              <Sparkles className="h-6 w-6" />
+              <span>Generate Meal Plan</span>
+            </>
+          )}
+        </button>
+      </div>
 
-                {/* Recipe Stats */}
-                <div className="flex items-center justify-between text-sm text-gray-500">
-                  <div className="flex items-center space-x-1">
-                    <Clock className="h-4 w-4" />
-                    <span>{recipe.prepTime} min</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <Users className="h-4 w-4" />
-                    <span>{recipe.servings} servings</span>
-                  </div>
-                  <div className="flex items-center space-x-1 text-green-600 font-medium">
-                    <DollarSign className="h-4 w-4" />
-                    <span>${recipe.totalCost.toFixed(2)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
+      {isGenerating && currentJobId && (
+        <div className="text-center text-sm text-gray-500 pb-8">
+          <p>Job ID: {currentJobId}</p>
+          <p className="mt-2">This may take a few moments...</p>
+          <button
+            onClick={() => abortRef.current?.abort()}
+            className="mt-4 text-gray-600 hover:text-gray-800 underline"
+          >
+            Cancel
+          </button>
         </div>
       )}
     </div>

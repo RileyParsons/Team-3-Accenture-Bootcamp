@@ -17,8 +17,10 @@ import {
   TrendingUp as ChartIcon
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { getProfile, UserData, getTransactionSummary, TransactionSummary, createTransaction, TransactionType, TransactionCategory } from '@/lib/api';
+import { getProfile, UserData, getTransactionSummary, TransactionSummary, createTransaction, TransactionType, TransactionCategory, RecurringExpense } from '@/lib/api';
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { getStoredProfile } from '@/lib/storage';
+import { UserProfileV2 } from '@/types/profile';
 
 interface ExpenseBreakdown {
   name: string;
@@ -26,6 +28,62 @@ interface ExpenseBreakdown {
   frequency: string;
   monthlyAmount: number;
   color: string;
+}
+
+// Helper function to convert UserProfileV2 to UserData format
+function convertProfileV2ToUserData(profileV2: UserProfileV2): UserData {
+  const recurringExpenses: RecurringExpense[] = [];
+
+  // Add rent if applicable
+  if (profileV2.living.paysRent && profileV2.living.rentAmount) {
+    recurringExpenses.push({
+      name: 'Rent',
+      amount: profileV2.living.rentAmount,
+      frequency: 'weekly',
+      isFixed: true,
+    });
+  }
+
+  // Add groceries
+  recurringExpenses.push({
+    name: 'Groceries',
+    amount: profileV2.spending.groceriesWeekly,
+    frequency: 'weekly',
+    isFixed: false,
+  });
+
+  // Add transport if applicable
+  if (profileV2.spending.transportWeekly > 0) {
+    const transportName = profileV2.spending.transportMode === 'public' ? 'Public Transport' :
+                          profileV2.spending.transportMode === 'car' ? 'Car/Fuel' :
+                          profileV2.spending.transportMode === 'rideshare' ? 'Rideshare' : 'Transport';
+    recurringExpenses.push({
+      name: transportName,
+      amount: profileV2.spending.transportWeekly,
+      frequency: 'weekly',
+      isFixed: false,
+    });
+  }
+
+  // Add entertainment
+  recurringExpenses.push({
+    name: 'Entertainment',
+    amount: profileV2.spending.entertainmentMonthly,
+    frequency: 'monthly',
+    isFixed: false,
+  });
+
+  return {
+    userId: profileV2.userId,
+    email: profileV2.email,
+    name: profileV2.name,
+    income: 0, // Not collected in onboarding v2
+    incomeFrequency: 'monthly',
+    savings: 0, // Will be calculated from transactions
+    location: undefined,
+    postcode: undefined,
+    recurringExpenses,
+  };
 }
 
 export default function DashboardPage() {
@@ -60,24 +118,46 @@ export default function DashboardPage() {
       }
 
       const { userId } = JSON.parse(storedUser);
-      const profileData = await getProfile(userId);
+      
+      // Try to get profile from backend, fallback to localStorage
+      let profileData: UserData | null = null;
+      try {
+        profileData = await getProfile(userId);
+      } catch (backendError) {
+        console.warn('Backend profile not available, using localStorage:', backendError);
+        
+        // Try to get profile from localStorage (new onboarding format)
+        const storedProfileV2 = getStoredProfile();
+        if (storedProfileV2) {
+          profileData = convertProfileV2ToUserData(storedProfileV2);
+        } else {
+          throw new Error('No profile found. Please complete onboarding.');
+        }
+      }
+      
       setProfile(profileData);
 
-      // Load transaction summary for the last 90 days (for chart)
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - 90);
+      // Try to load transaction summary (optional - may not exist yet)
+      try {
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - 90);
 
-      const summary = await getTransactionSummary(
-        userId,
-        startDate.toISOString().split('T')[0],
-        endDate.toISOString().split('T')[0],
-        'day'
-      );
-      setTransactionSummary(summary);
+        const summary = await getTransactionSummary(
+          userId,
+          startDate.toISOString().split('T')[0],
+          endDate.toISOString().split('T')[0],
+          'day'
+        );
+        setTransactionSummary(summary);
+      } catch (transactionError) {
+        console.warn('No transaction data available yet:', transactionError);
+        // This is OK - user may not have any transactions yet
+        setTransactionSummary(null);
+      }
     } catch (err) {
       console.error('Error loading dashboard:', err);
-      setError('Failed to load dashboard data.');
+      setError(err instanceof Error ? err.message : 'Failed to load dashboard data.');
     } finally {
       setIsLoading(false);
     }
@@ -289,8 +369,21 @@ export default function DashboardPage() {
   if (error || !profile || !metrics) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
-          {error || 'Failed to load dashboard data'}
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <h2 className="text-lg font-semibold text-red-900 mb-2">
+            {error?.includes('onboarding') ? 'Complete Your Profile' : 'Error Loading Dashboard'}
+          </h2>
+          <p className="text-red-700 mb-4">
+            {error || 'Failed to load dashboard data'}
+          </p>
+          {error?.includes('onboarding') && (
+            <button
+              onClick={() => router.push('/onboarding')}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            >
+              Complete Onboarding
+            </button>
+          )}
         </div>
       </div>
     );
@@ -612,10 +705,10 @@ export default function DashboardPage() {
                     const expensesTrend = calculateTrend(processedData.map(d => d.expenses));
                     const savingsTrend = calculateTrend(processedData.map(d => d.savings));
 
-                    // Create 6 projection points (extend further into future)
+                    // Create 18 projection points (4.5 months of weekly projections)
                     const lastIndex = processedData.length - 1;
                     const projections = [];
-                    for (let i = 1; i <= 6; i++) {
+                    for (let i = 1; i <= 18; i++) {
                       const futureIndex = lastIndex + i;
                       const futureDate = new Date(processedData[lastIndex].date);
                       futureDate.setDate(futureDate.getDate() + (i * 7)); // Weekly projections

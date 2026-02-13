@@ -1,7 +1,7 @@
 // API utility functions for SaveSmart
 
-// Use local backend instead of AWS Lambda
-const API_BASE_URL = 'http://localhost:3001/api';
+// Use environment variable for API base URL, fallback to production
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://lmj3rtgsbe.execute-api.ap-southeast-2.amazonaws.com/prod';
 
 // Simple password hashing using Web Crypto API (for demo purposes)
 // In production, this should be done on the backend
@@ -155,38 +155,28 @@ export const registerUser = async (
     }
 };
 
-// Login user (verifies password by fetching user and comparing hash)
+// Login user (authenticates via backend login endpoint)
 export const loginUser = async (
     email: string,
     password: string
 ): Promise<UserData | null> => {
     try {
-        // First, we need to get userId from email
-        // Since we don't have an email lookup endpoint, we'll use localStorage
-        const storedUser = localStorage.getItem('savesmart_user');
-        if (!storedUser) {
-            throw new Error('No account found');
+        // Call backend login endpoint
+        const response = await fetch(`${API_BASE_URL}/auth/login`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email, password }),
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Invalid credentials');
         }
 
-        const localUserData = JSON.parse(storedUser);
-        if (localUserData.email !== email) {
-            throw new Error('Invalid credentials');
-        }
-
-        // Get user from backend
-        const userData = await getUser(localUserData.userId);
-
-        if (!userData) {
-            throw new Error('User not found');
-        }
-
-        // Verify password
-        const hashedPassword = await hashPassword(password);
-        if (userData.hashedPassword !== hashedPassword) {
-            throw new Error('Invalid credentials');
-        }
-
-        return userData;
+        const userData = await response.json();
+        return userData as UserData;
     } catch (error) {
         console.error('Login error:', error);
         throw error;
@@ -741,6 +731,161 @@ export interface MealPlan {
   updatedAt: string;
 }
 
+// Helper function to normalize meal plan data and ensure all required fields exist
+const normalizeMealPlan = (mealPlan: any): MealPlan => {
+  if (!mealPlan) {
+    console.error('normalizeMealPlan: Received null/undefined meal plan');
+    throw new Error('Invalid meal plan data received from server');
+  }
+
+  // Check if this is the new backend format with recipes array
+  if (mealPlan.recipes && Array.isArray(mealPlan.recipes) && !mealPlan.days) {
+    console.log('normalizeMealPlan: Converting recipes-based response to meal plan format');
+    return convertRecipesToMealPlan(mealPlan);
+  }
+
+  // Log warning if critical fields are missing
+  if (!mealPlan.nutritionSummary) {
+    console.warn('normalizeMealPlan: nutritionSummary missing, using defaults');
+  }
+  if (!mealPlan.shoppingList) {
+    console.warn('normalizeMealPlan: shoppingList missing, using defaults');
+  }
+  if (!mealPlan.days || !Array.isArray(mealPlan.days)) {
+    console.warn('normalizeMealPlan: days array missing or invalid, using empty array');
+  }
+
+  return {
+    preferences: mealPlan.preferences || {
+      allergies: [],
+      calorieGoal: 2000,
+      culturalPreference: 'none',
+      dietType: 'balanced',
+      notes: '',
+    },
+    days: Array.isArray(mealPlan.days) ? mealPlan.days : [],
+    totalWeeklyCost: typeof mealPlan.totalWeeklyCost === 'number' ? mealPlan.totalWeeklyCost : 0,
+    nutritionSummary: mealPlan.nutritionSummary || {
+      averageDailyCalories: 0,
+      proteinGrams: 0,
+      carbsGrams: 0,
+      fatGrams: 0,
+    },
+    shoppingList: mealPlan.shoppingList || {
+      stores: [],
+      totalCost: 0,
+    },
+    notes: mealPlan.notes || '',
+    createdAt: mealPlan.createdAt || new Date().toISOString(),
+    updatedAt: mealPlan.updatedAt || new Date().toISOString(),
+  };
+};
+
+// Helper function to convert recipes-based backend response to meal plan format
+const convertRecipesToMealPlan = (response: any): MealPlan => {
+  const recipes = response.recipes || [];
+  const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  
+  // Calculate total weekly cost from recipes
+  const totalWeeklyCost = recipes.reduce((sum: number, recipe: any) => {
+    const cost = recipe.estimatedCosts?.totalCost || 0;
+    return sum + cost;
+  }, 0);
+
+  // Build shopping list from recipe ingredients
+  const ingredientsMap = new Map<string, any>();
+  recipes.forEach((recipe: any) => {
+    if (recipe.ingredients && Array.isArray(recipe.ingredients)) {
+      recipe.ingredients.forEach((ing: any) => {
+        if (ing.found && ing.colesProductName) {
+          const key = ing.colesProductName;
+          if (ingredientsMap.has(key)) {
+            const existing = ingredientsMap.get(key);
+            existing.quantity += ing.quantity || 1;
+            existing.price += ing.estimatedIngredientCost || 0;
+          } else {
+            ingredientsMap.set(key, {
+              name: ing.colesProductName,
+              quantity: ing.quantity || 1,
+              unit: ing.unit || 'unit',
+              price: ing.estimatedIngredientCost || 0,
+              recipeIds: [recipe.id],
+            });
+          }
+        }
+      });
+    }
+  });
+
+  const shoppingListItems = Array.from(ingredientsMap.values());
+  const shoppingListTotal = shoppingListItems.reduce((sum, item) => sum + item.price, 0);
+
+  // Create a simple 7-day meal plan by distributing recipes
+  const days = DAYS_OF_WEEK.map((day, index) => {
+    const recipe = recipes[index % recipes.length]; // Cycle through recipes
+    const meals = [];
+
+    if (recipe) {
+      // Assign recipe to dinner slot
+      meals.push({
+        mealType: 'dinner' as MealType,
+        name: recipe.title || 'Recipe',
+        description: recipe.whyRecommended || `${recipe.cuisine || 'International'} cuisine`,
+        recipeId: recipe.id || null,
+        estimatedCalories: 0, // Not provided by backend
+        estimatedCost: recipe.estimatedCosts?.costPerServing || 0,
+      });
+    }
+
+    return {
+      day,
+      meals,
+    };
+  });
+
+  // Calculate nutrition summary (estimates since backend doesn't provide)
+  const avgCaloriesPerMeal = 500; // Rough estimate
+  const mealsPerDay = 3;
+  const averageDailyCalories = avgCaloriesPerMeal * mealsPerDay;
+
+  // Build notes from backend assumptions
+  let notes = response.notes || '';
+  if (response.assumptions && Array.isArray(response.assumptions)) {
+    notes = response.assumptions.join(' ');
+  }
+
+  return {
+    preferences: {
+      allergies: [],
+      calorieGoal: 2000,
+      culturalPreference: response.currency === 'AUD' ? 'Australian' : 'none',
+      dietType: 'balanced',
+      notes: notes,
+    },
+    days,
+    totalWeeklyCost,
+    nutritionSummary: {
+      averageDailyCalories,
+      proteinGrams: 0, // Not provided by backend
+      carbsGrams: 0,
+      fatGrams: 0,
+    },
+    shoppingList: {
+      stores: [
+        {
+          storeName: 'Coles',
+          items: shoppingListItems,
+          subtotal: shoppingListTotal,
+        },
+      ],
+      totalCost: shoppingListTotal,
+    },
+    notes: notes,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+};
+
 // Generate AI-powered meal plan from preferences
 export const generateMealPlan = async (
   userId: string,
@@ -764,7 +909,7 @@ export const generateMealPlan = async (
     }
 
     const data = await response.json();
-    return data.mealPlan;
+    return normalizeMealPlan(data.mealPlan);
   } catch (error) {
     console.error('Error generating meal plan:', error);
     throw error;
@@ -789,7 +934,7 @@ export const getMealPlan = async (userId: string): Promise<MealPlan | null> => {
     }
 
     const data = await response.json();
-    return data.mealPlan;
+    return data.mealPlan ? normalizeMealPlan(data.mealPlan) : null;
   } catch (error) {
     console.error('Error fetching meal plan:', error);
     throw error;
@@ -816,7 +961,7 @@ export const updateMealPlan = async (
     }
 
     const data = await response.json();
-    return data.mealPlan;
+    return normalizeMealPlan(data.mealPlan);
   } catch (error) {
     console.error('Error updating meal plan:', error);
     throw error;
@@ -849,7 +994,7 @@ export const addMealToSlot = async (
     }
 
     const data = await response.json();
-    return data.mealPlan;
+    return normalizeMealPlan(data.mealPlan);
   } catch (error) {
     console.error('Error adding meal to plan:', error);
     throw error;
@@ -880,9 +1025,210 @@ export const removeMealFromSlot = async (
     }
 
     const data = await response.json();
-    return data.mealPlan;
+    return normalizeMealPlan(data.mealPlan);
   } catch (error) {
     console.error('Error removing meal from plan:', error);
     throw error;
   }
+};
+
+// ========================
+// ASYNC GROCERIES WORKFLOW
+// ========================
+// POST /groceries returns jobId (202), poll GET /groceries/{jobId} until SUCCEEDED/ERROR
+
+export type JobStatus = 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'ERROR';
+
+export interface GroceriesJobResponse {
+  ok: boolean;
+  jobId: string;
+}
+
+export interface GroceriesJobStatusResponse {
+  ok: boolean;
+  jobId: string;
+  status: JobStatus;
+  result?: MealPlan;
+  error?: any;
+}
+
+export interface PollOptions {
+  signal?: AbortSignal;
+  timeoutMs?: number;
+}
+
+// Start a groceries job (async)
+// POST /groceries - returns HTTP 202 with { ok: true, jobId: "<uuid>" }
+export const startGroceriesJob = async (
+  userId: string,
+  preferences: MealPlanPreferences
+): Promise<string> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/groceries`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        userId,
+        preferences,
+      }),
+    });
+
+    // Handle 202 Accepted (async job started)
+    if (response.status === 202) {
+      const contentType = response.headers.get('content-type');
+      if (!contentType?.includes('application/json')) {
+        throw new Error('Expected JSON response from server');
+      }
+
+      const data: GroceriesJobResponse = await response.json();
+      
+      if (!data.jobId) {
+        throw new Error('Server did not return a jobId');
+      }
+
+      return data.jobId;
+    }
+
+    // Handle 200 OK (sync response - optional fallback)
+    if (response.status === 200) {
+      const contentType = response.headers.get('content-type');
+      if (contentType?.includes('application/json')) {
+        const data = await response.json();
+        // If server returns a jobId even on 200, use it
+        if (data.jobId) {
+          return data.jobId;
+        }
+        // Otherwise, this is a sync response - not expected in async workflow
+        throw new Error('Unexpected synchronous response from server');
+      }
+    }
+
+    // Handle errors
+    const errorText = await response.text();
+    throw new Error(`Failed to start groceries job: ${response.status} ${errorText}`);
+  } catch (error) {
+    console.error('Error starting groceries job:', error);
+    throw error;
+  }
+};
+
+// Get groceries job status
+// GET /groceries/{jobId} - returns job status and result when complete
+export const getGroceriesJob = async (jobId: string): Promise<GroceriesJobStatusResponse> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/groceries/${jobId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      // 404 might mean job is still starting up
+      if (response.status === 404) {
+        return {
+          ok: false,
+          jobId,
+          status: 'PENDING',
+        };
+      }
+
+      const errorText = await response.text();
+      throw new Error(`Failed to get job status: ${response.status} ${errorText}`);
+    }
+
+    const contentType = response.headers.get('content-type');
+    if (!contentType?.includes('application/json')) {
+      throw new Error('Expected JSON response from server');
+    }
+
+    const data: GroceriesJobStatusResponse = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error getting groceries job:', error);
+    throw error;
+  }
+};
+
+// Poll groceries job until completion
+// Implements exponential backoff: 1s -> 2s -> 4s -> 8s (capped at 8s)
+// Default timeout: 180s (3 minutes)
+export const pollGroceriesJob = async (
+  jobId: string,
+  options: PollOptions = {}
+): Promise<MealPlan> => {
+  const { signal, timeoutMs = 180000 } = options;
+  const startTime = Date.now();
+  const maxBackoff = 8000; // 8 seconds
+  let backoff = 1000; // Start at 1 second
+  let attempt = 0;
+  const maxNotFoundAttempts = 10; // Allow 10 seconds for job to appear
+
+  while (true) {
+    // Check if aborted
+    if (signal?.aborted) {
+      throw new Error('Polling cancelled');
+    }
+
+    // Check timeout
+    if (Date.now() - startTime > timeoutMs) {
+      throw new Error('Job polling timed out after 3 minutes');
+    }
+
+    try {
+      const status = await getGroceriesJob(jobId);
+
+      // Handle SUCCEEDED
+      if (status.status === 'SUCCEEDED') {
+        if (!status.result) {
+          throw new Error('Job succeeded but no result returned');
+        }
+        return normalizeMealPlan(status.result);
+      }
+
+      // Handle ERROR
+      if (status.status === 'ERROR') {
+        const errorMsg = status.error?.message || status.error || 'Job failed';
+        throw new Error(`Meal plan generation failed: ${errorMsg}`);
+      }
+
+      // Handle PENDING/RUNNING - continue polling
+      if (status.status === 'PENDING' || status.status === 'RUNNING') {
+        // Wait with exponential backoff
+        await new Promise(resolve => setTimeout(resolve, backoff));
+        backoff = Math.min(backoff * 2, maxBackoff);
+        attempt++;
+        continue;
+      }
+
+      // Unknown status
+      throw new Error(`Unknown job status: ${status.status}`);
+    } catch (error) {
+      // If 404 and we're still in the grace period, treat as PENDING
+      if (error instanceof Error && error.message.includes('404') && attempt < maxNotFoundAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        attempt++;
+        continue;
+      }
+
+      // Otherwise, rethrow
+      throw error;
+    }
+  }
+};
+
+// Legacy sync function - now uses async workflow internally
+// This maintains backward compatibility with existing code
+export const generateMealPlanAsync = async (
+  userId: string,
+  preferences: MealPlanPreferences,
+  options?: PollOptions
+): Promise<MealPlan> => {
+  // Start the job
+  const jobId = await startGroceriesJob(userId, preferences);
+  
+  // Poll until completion
+  return await pollGroceriesJob(jobId, options);
 };

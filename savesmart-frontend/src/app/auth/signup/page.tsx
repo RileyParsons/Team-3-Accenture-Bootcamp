@@ -4,6 +4,8 @@ import { useState } from "react";
 import { PiggyBank, Eye, EyeOff, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+// No longer need to import API functions - signup only saves to localStorage
+// Database save happens after onboarding completes
 
 export default function Signup() {
   const router = useRouter();
@@ -62,23 +64,36 @@ export default function Signup() {
       setIsLoading(true);
 
       try {
-        // Store signup data temporarily in localStorage (not sent to backend yet)
-        const tempSignupData = {
+        // Generate userId locally
+        const userId = `u_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+
+        // Hash password for storage (will be saved to DB after onboarding)
+        const encoder = new TextEncoder();
+        const data = encoder.encode(formData.password);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashedPassword = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+        // Store user data in localStorage ONLY (no DB save yet)
+        // This will be saved to database after onboarding completes
+        const localUserData = {
+          userId: userId,
           email: formData.email,
-          password: formData.password, // Will be hashed during onboarding submission
           firstName: formData.firstName,
           lastName: formData.lastName,
           name: `${formData.firstName} ${formData.lastName}`,
-          signupDate: new Date().toISOString()
+          hashedPassword: hashedPassword,
+          createdAt: new Date().toISOString()
         };
 
-        localStorage.setItem('savesmart_temp_signup', JSON.stringify(tempSignupData));
+        localStorage.setItem('savesmart_user', JSON.stringify(localUserData));
+        localStorage.setItem('savesmart_authenticated', 'true');
 
-        // Redirect to onboarding (POST request will happen after onboarding)
+        // Redirect to onboarding (which will save to DB after completion)
         router.push('/onboarding');
       } catch (error: any) {
         console.error('Signup error:', error);
-        const errorMessage = error?.message || 'Failed to proceed. Please try again.';
+        const errorMessage = error?.message || 'Failed to create account. Please try again.';
         setErrors({ submit: errorMessage });
       } finally {
         setIsLoading(false);

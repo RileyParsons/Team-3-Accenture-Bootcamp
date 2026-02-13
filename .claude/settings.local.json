@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git checkout:*)",
+      "Bash(git rm:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nMerge origin/main with backend priority\n\nResolved conflicts in favor of backend implementation:\n- README.md: Kept complete backend version\n- signup/page.tsx: Kept backend userId generation and password hashing\n- onboarding/page.tsx: Kept backend user profile creation flow\n- meal-plan/page.tsx: Kept deleted as per backend decision\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(ls:*)",
+      "Bash(find:*)"
+    ]
+  }
+}
