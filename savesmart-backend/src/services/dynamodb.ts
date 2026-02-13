@@ -53,6 +53,35 @@ export class DynamoDBService {
   }
 
   /**
+   * Get a user by email using the email-index GSI
+   * @param email - The user's email address
+   * @returns User object or null if not found
+   */
+  async getUserByEmail(email: string): Promise<User | null> {
+    try {
+      const command = new QueryCommand({
+        TableName: this.config.dynamodb.usersTable,
+        IndexName: 'email-index',
+        KeyConditionExpression: 'email = :email',
+        ExpressionAttributeValues: {
+          ':email': email,
+        },
+      });
+
+      const response = await this.docClient.send(command);
+
+      if (!response.Items || response.Items.length === 0) {
+        return null;
+      }
+
+      return response.Items[0] as User;
+    } catch (error) {
+      console.error('Error getting user by email:', error);
+      throw new Error(`Failed to get user by email: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
    * Update a user's information
    * @param userId - The user's unique identifier
    * @param updates - Partial user object with fields to update
